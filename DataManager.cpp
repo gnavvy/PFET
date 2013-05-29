@@ -37,6 +37,17 @@ void DataManager::InitTFSettings(string filename) {
     inf.close();
 }
 
+void DataManager::SaveMaskVolume(float* pData, const Metadata &meta, const int timestep) {
+    char timestamp[21];  // up to 64-bit #
+    sprintf(timestamp, meta.timeFormat.c_str(), timestep);
+    string fpath = meta.path + "/" + meta.prefix + timestamp + ".mask";
+    ofstream outf(fpath.c_str(), ios::binary);
+    if (!outf) { cerr << "cannot output to file: " << fpath << endl; return; }
+
+    outf.write(reinterpret_cast<char*>(pData), volumeSize*sizeof(float));
+    outf.close();
+}
+
 void DataManager::LoadDataSequence(const Metadata &meta, const int timestep) {
     blockDim = meta.volumeDim;
     volumeSize = blockDim.Product();
@@ -55,7 +66,7 @@ void DataManager::LoadDataSequence(const Metadata &meta, const int timestep) {
         }
 
         char timestamp[21];  // up to 64-bit #
-        sprintf(timestamp, "%08d", t);
+        sprintf(timestamp, meta.timeFormat.c_str(), t);
         string fpath = meta.path + "/" + meta.prefix + timestamp + "." + meta.surfix;
 
         ifstream inf(fpath.c_str(), ios::binary);

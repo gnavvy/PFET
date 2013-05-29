@@ -1,14 +1,16 @@
 #include "BlockController.h"
 
 int main (int argc, char** argv) {
+
     Metadata meta; {
-        meta.start      = 100;
-        meta.end        = 110;
-        meta.prefix     = "vort";
-        meta.surfix     = "raw";
+        meta.start      = 60;
+        meta.end        = 65;
+        meta.prefix     = "vorts";
+        meta.surfix     = "data";
         meta.path       = "/Users/Yang/Develop/Data/vorts";
-        meta.tfPath     = "config.tfe";
-        meta.volumeDim  = Vector3i(256, 256, 256);
+        meta.tfPath     = "/Users/Yang/Develop/Data/vorts/vorts.tfe";
+        meta.timeFormat = "%d";
+        meta.volumeDim  = Vector3i(128, 128, 128);
     }
 
     int currentTimestep = meta.start;
@@ -20,7 +22,7 @@ int main (int argc, char** argv) {
     while (currentTimestep++ < meta.end) {
         pBlockController->SetCurrentTimestep(currentTimestep);
         pBlockController->TrackForward(meta);
-        cout << currentTimestep << " done." << endl;
+        cout << "-- " << currentTimestep << " done --" << endl;
     }
 
     delete pBlockController;

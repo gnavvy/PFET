@@ -17,7 +17,7 @@ public:
     void CreateNewMaskVolume();
     void InitTFSettings(string filename);
     void LoadDataSequence(const Metadata &meta, const int timestep);
-
+    void SaveMaskVolume(float *pData, const Metadata &meta, const int timestep);
 private:
     void nomalize(float *pData);
 
