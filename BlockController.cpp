@@ -1,27 +1,27 @@
 #include "BlockController.h"
 
-BlockController::BlockController()  {}
+BlockController::BlockController() {}
 BlockController::~BlockController() {
-    pDataManager->~DataManager();
-    pFeatureTracker->~FeatureTracker();
+    pDataManager_->~DataManager();
+    pFeatureTracker_->~FeatureTracker();
 }
 
 void BlockController::InitParameters(const Metadata &meta) {
-    pDataManager = new DataManager();
-    pDataManager->LoadDataSequence(meta, currentTimestep);
-    pDataManager->CreateNewMaskVolume();
-    pDataManager->InitTFSettings(meta.tfPath);
+    pDataManager_ = new DataManager();
+    pDataManager_->InitTF(meta);
+    pDataManager_->LoadDataSequence(meta, currentT_);
 
-    pFeatureTracker = new FeatureTracker(pDataManager->GetBlockDimension());
-    pFeatureTracker->SetTFResolution(pDataManager->GetTFResolution());
-    pFeatureTracker->SetTFMap(pDataManager->GetTFOpacityMap());
-    pFeatureTracker->SetDataPointer(pDataManager->GetDataPointer(currentTimestep));
+    pFeatureTracker_ = new FeatureTracker(pDataManager_->GetBlockDim());
+    pFeatureTracker_->SetTFRes(pDataManager_->GetTFRes());
+    pFeatureTracker_->SetTFMap(pDataManager_->GetTFMap());
+    pFeatureTracker_->SetDataPtr(pDataManager_->GetDataPtr(currentT_));
 }
 
 void BlockController::TrackForward(const Metadata &meta) {
-    pDataManager->LoadDataSequence(meta, currentTimestep);
-    pFeatureTracker->ExtractAllFeatures();
-    pFeatureTracker->TrackFeature(pDataManager->GetDataPointer(currentTimestep), FT_FORWARD, FT_DIRECT);
-    pFeatureTracker->SaveExtractedFeatures(currentTimestep);
-    pDataManager->SaveMaskVolume(pFeatureTracker->GetMaskPointer(), meta, currentTimestep);
+    pDataManager_->LoadDataSequence(meta, currentT_);
+    pFeatureTracker_->SetTFMap(pDataManager_->GetTFMap());
+    pFeatureTracker_->ExtractAllFeatures();
+    pFeatureTracker_->TrackFeature(pDataManager_->GetDataPtr(currentT_), FT_FORWARD, FT_DIRECT);
+    pFeatureTracker_->SaveExtractedFeatures(currentT_);
+    pDataManager_->SaveMaskVolume(pFeatureTracker_->GetMaskPtr(), meta, currentT_);
 }

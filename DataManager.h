@@ -2,33 +2,32 @@
 #define DATAMANAGER_H
 
 #include "Utils.h"
+#include "Metadata.h"
 
 class DataManager {
 
 public:
     DataManager();
-    ~DataManager();
+   ~DataManager();
 
-    float* GetDataPointer(int index) { return dataSequence[index]; }
-    float* GetTFOpacityMap()         { return pTFOpacityMap; }
-    int GetTFResolution()            { return tfResolution; }
-    Vector3i GetBlockDimension()     { return blockDim; }
+    float* GetDataPtr(int t)    { return dataSequence_[t]; }
+    float* GetTFMap()           { return pTFMap_; }
+    int GetTFRes()              { return tfRes_ > 0 ? tfRes_ : DEFAULT_TF_RES; }
+    vector3i GetBlockDim()      { return blockDim_; }
 
-    void CreateNewMaskVolume();
-    void InitTFSettings(string filename);
-    void LoadDataSequence(const Metadata &meta, const int timestep);
+    void InitTF(const Metadata &meta);
+    void LoadDataSequence(const Metadata &meta, const int currentT);
     void SaveMaskVolume(float *pData, const Metadata &meta, const int timestep);
+
 private:
-    void nomalize(float *pData);
+    void preprocessData(float *pData);
 
-    DataSequence dataSequence;
-    Vector3i blockDim;
+    DataSequence dataSequence_;
+    vector3i blockDim_;
 
-    int volumeSize;
-    int tfResolution;
-
-    float *pMaskVolume;
-    float *pTFOpacityMap;
+    int volumeSize_;
+    int tfRes_;
+    float *pTFMap_;
 };
 
 #endif // DATAMANAGER_H

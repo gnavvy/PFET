@@ -1,22 +1,16 @@
 #include "FeatureTracker.h"
 
-FeatureTracker::FeatureTracker(Vector3i dim) : blockDim(dim) {
-    globalMaskValue = 0.0f;
-    tfRes = 0;
-    pTfMap = NULL;
-    volumeSize = blockDim.Product();
-    pMask = new float[volumeSize]();
-    pMaskPrevious = new float[volumeSize]();
+FeatureTracker::FeatureTracker(vector3i dim) : blockDim_(dim) {
+    volumeSize_ = blockDim_.VolumeSize();
+    mask_ = vector<float>(volumeSize_);
+    maskPrev_ = vector<float>(volumeSize_);
 }
 
 FeatureTracker::~FeatureTracker() {
-    delete [] pMask;
-    delete [] pMaskPrevious;
-
-    if (featureSequence.size() > 0) {
-        for (FeatureVectorSequence::iterator it = featureSequence.begin(); it != featureSequence.end(); it++) {
+    if (featureSequence_.size() > 0) {
+        for (auto it = featureSequence_.begin(); it != featureSequence_.end(); it++) {
             vector<Feature> featureVector = it->second;
-            for (size_t i = 0; i < featureVector.size(); i++) {
+            for (size_t i = 0; i < featureVector.size(); ++i) {
                 Feature f = featureVector[i];
                 f.edgeVoxels.clear();
                 f.bodyVoxels.clear();
@@ -26,59 +20,57 @@ FeatureTracker::~FeatureTracker() {
 }
 
 void FeatureTracker::ExtractAllFeatures() {
-    for (int z = 0; z < blockDim.z; z++) {
-        for (int y = 0; y < blockDim.y; y++) {
-            for (int x = 0; x < blockDim.x; x++) {
-                int index = GetVoxelIndex(Vector3i(x, y, z));
-                if (pMask[index] > 0) {  // point already within a feature
-                    continue;                   // most points should stop here
-                }
-                int tfIndex = (int)(pVolumeData[index] * (float)(tfRes-1));
-                if (pTfMap[tfIndex] >= OPACITY_THRESHOLD) {
-                    FindNewFeature(Vector3i(x,y,z));
+    for (int z = 0; z < blockDim_.z; z++) {
+        for (int y = 0; y < blockDim_.y; y++) {
+            for (int x = 0; x < blockDim_.x; x++) {
+                int index = GetVoxelIndex(vector3i(x, y, z));
+                if (mask_[index] > 0) continue; // point already within a feature
+                int tfIndex = (int)(data_[index] * (tfRes_-1));
+                if (tfMap_[tfIndex] >= OPACITY_THRESHOLD) {
+                    FindNewFeature(vector3i(x,y,z));
                 }
             }
         }
     }
 }
 
-void FeatureTracker::FindNewFeature(Vector3i seed) {
+void FeatureTracker::FindNewFeature(vector3i seed) {
     Feature f; {
         f.id         = 0;
-        f.centroid   = Vector3i();
-        f.edgeVoxels = list<Vector3i>();
-        f.bodyVoxels = list<Vector3i>();
-        f.maskValue  = globalMaskValue += 1.0f;
+        f.centroid   = vector3i();
+        f.edgeVoxels = list<vector3i>();
+        f.bodyVoxels = list<vector3i>();
+        f.maskValue  = globalMaskValue_ += 1.0f;
     }
 
     f.edgeVoxels.push_back(seed);
     expandRegion(f);
 
     if (f.bodyVoxels.size() < (size_t)MIN_NUM_VOXEL_IN_FEATURE) {
-        globalMaskValue -= 1.0f; return;
+        globalMaskValue_ -= 1.0f; return;
     }
 
-    currentFeatures.push_back(f);
-    backup1Features = currentFeatures;
-    backup2Features = currentFeatures;
-    backup3Features = currentFeatures;
+    currentFeatures_.push_back(f);
+    backup1Features_ = currentFeatures_;
+    backup2Features_ = currentFeatures_;
+    backup3Features_ = currentFeatures_;
 }
 
 void FeatureTracker::TrackFeature(float* pData, int direction, int mode) {
-    if (pTfMap == NULL || tfRes <= 0) {
+    if (tfMap_.size() == 0 || tfRes_ <= 0) {
         cout << "Set TF pointer first." << endl; exit(3);
     }
 
-    pVolumeData = pData;
+    data_.assign(pData, pData+volumeSize_);
 
     // save current 0-1 matrix to previous, then clear current maxtrix
-    std::copy(pMask, pMask+volumeSize, pMaskPrevious);
-    std::fill(pMask, pMask+volumeSize, 0);
+    maskPrev_ = mask_;
+    std::fill(mask_.begin(), mask_.end(), 0.0f);
 
-    for (size_t i = 0; i < currentFeatures.size(); i++) {
-        Feature f = currentFeatures[i];
+    for (size_t i = 0; i < currentFeatures_.size(); ++i) {
+        Feature f = currentFeatures_[i];
 
-        Vector3i offset = predictRegion(i, direction, mode);
+        vector3i offset = predictRegion(i, direction, mode);
         fillRegion(f, offset);
         shrinkRegion(f);
         expandRegion(f);
@@ -91,20 +83,20 @@ void FeatureTracker::TrackFeature(float* pData, int direction, int mode) {
 
         f.centroid /= f.bodyVoxels.size();
         f.id = GetVoxelIndex(f.centroid);
-        currentFeatures[i] = f;
+        currentFeatures_[i] = f;
     }
 
     backupFeatureInfo(direction);
     ExtractAllFeatures();
 }
 
-inline Vector3i FeatureTracker::predictRegion(int index, int direction, int mode) {
-    int timestepsAvailable = direction == FT_BACKWARD ? timeLeft2Backward : timeLeft2Forward;
+inline vector3i FeatureTracker::predictRegion(int index, int direction, int mode) {
+    int timestepsAvailable = direction == FT_BACKWARD ? timeLeft2Backward_ : timeLeft2Forward_;
 
-    Vector3i off;
-    Feature b1f = backup1Features[index];
-    Feature b2f = backup2Features[index];
-    Feature b3f = backup3Features[index];
+    vector3i off;   // offset
+    Feature b1f = backup1Features_[index];
+    Feature b2f = backup2Features_[index];
+    Feature b3f = backup3Features_[index];
 
     int tmp;
     switch (mode) {
@@ -117,10 +109,10 @@ inline Vector3i FeatureTracker::predictRegion(int index, int direction, int mode
                 } else {  // Tracking forward as default
                     off = b3f.centroid - b2f.centroid;
                 }
-                for (list<Vector3i>::iterator p = b3f.edgeVoxels.begin(); p != b3f.edgeVoxels.end(); p++) {
-                    tmp = (*p).x + (int)floor(off.x); (*p).x = tmp <= 0 ? 0 : (tmp < blockDim.x ? tmp : blockDim.x-1);
-                    tmp = (*p).y + (int)floor(off.y); (*p).y = tmp <= 0 ? 0 : (tmp < blockDim.y ? tmp : blockDim.y-1);
-                    tmp = (*p).z + (int)floor(off.z); (*p).z = tmp <= 0 ? 0 : (tmp < blockDim.z ? tmp : blockDim.z-1);
+                for (list<vector3i>::iterator p = b3f.edgeVoxels.begin(); p != b3f.edgeVoxels.end(); p++) {
+                    tmp = (*p).x + (int)floor(off.x); (*p).x = tmp <= 0 ? 0 : (tmp < blockDim_.x ? tmp : blockDim_.x-1);
+                    tmp = (*p).y + (int)floor(off.y); (*p).y = tmp <= 0 ? 0 : (tmp < blockDim_.y ? tmp : blockDim_.y-1);
+                    tmp = (*p).z + (int)floor(off.z); (*p).z = tmp <= 0 ? 0 : (tmp < blockDim_.z ? tmp : blockDim_.z-1);
                 }
             }
         break;
@@ -135,10 +127,10 @@ inline Vector3i FeatureTracker::predictRegion(int index, int direction, int mode
                         off = b3f.centroid - b2f.centroid;
                     }
                 }
-                for (list<Vector3i>::iterator p = b3f.edgeVoxels.begin(); p != b3f.edgeVoxels.end(); p++) {
-                    tmp = (*p).x + (int)floor(off.x); (*p).x = tmp <= 0 ? 0 : (tmp < blockDim.x ? tmp : blockDim.x-1);
-                    tmp = (*p).y + (int)floor(off.y); (*p).y = tmp <= 0 ? 0 : (tmp < blockDim.y ? tmp : blockDim.y-1);
-                    tmp = (*p).z + (int)floor(off.z); (*p).z = tmp <= 0 ? 0 : (tmp < blockDim.z ? tmp : blockDim.z-1);
+                for (list<vector3i>::iterator p = b3f.edgeVoxels.begin(); p != b3f.edgeVoxels.end(); p++) {
+                    tmp = (*p).x + (int)floor(off.x); (*p).x = tmp <= 0 ? 0 : (tmp < blockDim_.x ? tmp : blockDim_.x-1);
+                    tmp = (*p).y + (int)floor(off.y); (*p).y = tmp <= 0 ? 0 : (tmp < blockDim_.y ? tmp : blockDim_.y-1);
+                    tmp = (*p).z + (int)floor(off.z); (*p).z = tmp <= 0 ? 0 : (tmp < blockDim_.z ? tmp : blockDim_.z-1);
                 }
             }
         break;
@@ -146,28 +138,28 @@ inline Vector3i FeatureTracker::predictRegion(int index, int direction, int mode
     return off;
 }
 
-inline void FeatureTracker::fillRegion(Feature &f, const Vector3i &offset) {
+inline void FeatureTracker::fillRegion(Feature &f, const vector3i &offset) {
     // predicted to be on edge
-    for (list<Vector3i>::iterator p = f.edgeVoxels.begin(); p != f.edgeVoxels.end(); p++) {
+    for (list<vector3i>::iterator p = f.edgeVoxels.begin(); p != f.edgeVoxels.end(); p++) {
         int index = GetVoxelIndex(*p);
-        if (pMask[index] == 0) {
-            pMask[index] = f.maskValue;
+        if (mask_[index] == 0) {
+            mask_[index] = f.maskValue;
         }
         f.bodyVoxels.push_back(*p);
         f.centroid += (*p);
     }
 
     // currently not on edge but previously on edge
-    for (list<Vector3i>::iterator p = f.edgeVoxels.begin(); p != f.edgeVoxels.end(); p++) {
+    for (list<vector3i>::iterator p = f.edgeVoxels.begin(); p != f.edgeVoxels.end(); p++) {
         int index = GetVoxelIndex(*p);
         int indexPrev = GetVoxelIndex((*p)-offset);
-        while ((*p).x >= 0 && (*p).x <= blockDim.x && (*p).x - offset.x >= 0 && (*p).x - offset.x <= blockDim.x &&
-               (*p).y >= 0 && (*p).y <= blockDim.y && (*p).y - offset.y >= 0 && (*p).y - offset.y <= blockDim.y &&
-               (*p).z >= 0 && (*p).z <= blockDim.z && (*p).z - offset.z >= 0 && (*p).z - offset.z <= blockDim.z &&
-               pMask[index] == 0 && pMaskPrevious[indexPrev] == f.maskValue) {
+        while ((*p).x >= 0 && (*p).x <= blockDim_.x && (*p).x - offset.x >= 0 && (*p).x - offset.x <= blockDim_.x &&
+               (*p).y >= 0 && (*p).y <= blockDim_.y && (*p).y - offset.y >= 0 && (*p).y - offset.y <= blockDim_.y &&
+               (*p).z >= 0 && (*p).z <= blockDim_.z && (*p).z - offset.z >= 0 && (*p).z - offset.z <= blockDim_.z &&
+               mask_[index] == 0 && maskPrev_[indexPrev] == f.maskValue) {
 
             // Mark all points: 1. currently = 1; 2. currently = 0 but previously = 1;
-            pMask[index] = f.maskValue;
+            mask_[index] = f.maskValue;
             f.bodyVoxels.push_back(*p);
             f.centroid += (*p);
         }
@@ -177,47 +169,47 @@ inline void FeatureTracker::fillRegion(Feature &f, const Vector3i &offset) {
 inline void FeatureTracker::shrinkRegion(Feature &f) {
     // mark all edge points as 0
     while (f.edgeVoxels.empty() == false) {
-        Vector3i seed = f.edgeVoxels.front();
+        vector3i seed = f.edgeVoxels.front();
         f.edgeVoxels.pop_front();
         shrinkEdge(f, seed);
     }
 
     while (!f.bodyVoxels.empty()) {
-        Vector3i seed = f.bodyVoxels.front();
+        vector3i seed = f.bodyVoxels.front();
         f.bodyVoxels.pop_front();
 
         int index = GetVoxelIndex(seed);
         bool seedOnEdge = false;
-        if (getOpacity(pVolumeData[index]) < OPACITY_THRESHOLD) {
+        if (getOpacity(data_[index]) < OPACITY_THRESHOLD) {
             seedOnEdge = false;
             // if point is invisible, mark its adjacent points as 0
             shrinkEdge(f, seed);                                            // center
-            if (++seed.x < blockDim.x) { shrinkEdge(f, seed); } seed.x--;   // right
-            if (++seed.y < blockDim.y) { shrinkEdge(f, seed); } seed.y--;   // top
-            if (++seed.z < blockDim.z) { shrinkEdge(f, seed); } seed.z--;   // back
-            if (--seed.x >= 0)         { shrinkEdge(f, seed); } seed.x++;   // left
-            if (--seed.y >= 0)         { shrinkEdge(f, seed); } seed.y++;   // bottom
-            if (--seed.z >= 0)         { shrinkEdge(f, seed); } seed.z++;   // front
-        } else if (pMask[index] == 0.0f) { seedOnEdge = true; }
+            if (++seed.x < blockDim_.x) { shrinkEdge(f, seed); } seed.x--;   // right
+            if (++seed.y < blockDim_.y) { shrinkEdge(f, seed); } seed.y--;   // top
+            if (++seed.z < blockDim_.z) { shrinkEdge(f, seed); } seed.z--;   // back
+            if (--seed.x >= 0)          { shrinkEdge(f, seed); } seed.x++;   // left
+            if (--seed.y >= 0)          { shrinkEdge(f, seed); } seed.y++;   // bottom
+            if (--seed.z >= 0)          { shrinkEdge(f, seed); } seed.z++;   // front
+        } else if (mask_[index] == 0.0f) { seedOnEdge = true; }
 
         if (seedOnEdge) { f.edgeVoxels.push_back(seed); }
     }
 
-    for (list<Vector3i>::iterator p = f.edgeVoxels.begin(); p != f.edgeVoxels.end(); p++) {
+    for (list<vector3i>::iterator p = f.edgeVoxels.begin(); p != f.edgeVoxels.end(); p++) {
         int index = GetVoxelIndex(*p);
-        if (pMask[index] != f.maskValue) {
-            pMask[index] = f.maskValue;
+        if (mask_[index] != f.maskValue) {
+            mask_[index] = f.maskValue;
             f.bodyVoxels.push_back(*p);
             f.centroid += (*p);
         }
     }
 }
 
-inline void FeatureTracker::shrinkEdge(Feature &f, const Vector3i &seed) {
+inline void FeatureTracker::shrinkEdge(Feature &f, const vector3i &seed) {
     int index = GetVoxelIndex(seed);
-    if (pMask[index] == f.maskValue) {
-        pMask[index] = 0;  // shrink
-        list<Vector3i>::iterator p = find(f.bodyVoxels.begin(), f.bodyVoxels.end(), seed);
+    if (mask_[index] == f.maskValue) {
+        mask_[index] = 0;  // shrink
+        list<vector3i>::iterator p = find(f.bodyVoxels.begin(), f.bodyVoxels.end(), seed);
         f.bodyVoxels.erase(p);
         f.edgeVoxels.push_back(seed);
         f.centroid -= seed;
@@ -225,17 +217,17 @@ inline void FeatureTracker::shrinkEdge(Feature &f, const Vector3i &seed) {
 }
 
 inline void FeatureTracker::expandRegion(Feature &f) {
-    list<Vector3i> tempVoxels;    // to store updated edge voxels
+    list<vector3i> tempVoxels;    // to store updated edge voxels
     while (!f.edgeVoxels.empty()) {
-        Vector3i seed = f.edgeVoxels.front();
+        vector3i seed = f.edgeVoxels.front();
         f.edgeVoxels.pop_front();
         bool seedOnEdge = false;
-        if (++seed.x < blockDim.x) { seedOnEdge |= expandEdge(f, seed); } seed.x--;  // right
-        if (++seed.y < blockDim.y) { seedOnEdge |= expandEdge(f, seed); } seed.y--;  // top
-        if (++seed.z < blockDim.z) { seedOnEdge |= expandEdge(f, seed); } seed.z--;  // front
-        if (--seed.x >= 0)         { seedOnEdge |= expandEdge(f, seed); } seed.x++;  // left
-        if (--seed.y >= 0)         { seedOnEdge |= expandEdge(f, seed); } seed.y++;  // bottom
-        if (--seed.z >= 0)         { seedOnEdge |= expandEdge(f, seed); } seed.z++;  // back
+        if (++seed.x < blockDim_.x) { seedOnEdge |= expandEdge(f, seed); } seed.x--;  // right
+        if (++seed.y < blockDim_.y) { seedOnEdge |= expandEdge(f, seed); } seed.y--;  // top
+        if (++seed.z < blockDim_.z) { seedOnEdge |= expandEdge(f, seed); } seed.z--;  // front
+        if (--seed.x >= 0)          { seedOnEdge |= expandEdge(f, seed); } seed.x++;  // left
+        if (--seed.y >= 0)          { seedOnEdge |= expandEdge(f, seed); } seed.y++;  // bottom
+        if (--seed.z >= 0)          { seedOnEdge |= expandEdge(f, seed); } seed.z++;  // back
 
         // if any one of the six neighboring points is not on edge, the original
         // seed point is still considered as on edge and will be put back to edge list
@@ -245,16 +237,16 @@ inline void FeatureTracker::expandRegion(Feature &f) {
     f.edgeVoxels.swap(tempVoxels);
 }
 
-inline bool FeatureTracker::expandEdge(Feature &f, const Vector3i &seed) {
+inline bool FeatureTracker::expandEdge(Feature &f, const vector3i &seed) {
     int index = GetVoxelIndex(seed);
 
     // this neighbor voxel is already labeled, or the opacity is not large enough to
     // to be labeled as within the feature, so the original seed is still on edge.
-    if (pMask[index] > 0 || getOpacity(pVolumeData[index]) < OPACITY_THRESHOLD) {
+    if (mask_[index] > 0 || getOpacity(data_[index]) < OPACITY_THRESHOLD) {
         return true;
     }
 
-    pMask[index] = f.maskValue;
+    mask_[index] = f.maskValue;
     f.edgeVoxels.push_back(seed);
     f.bodyVoxels.push_back(seed);
     f.centroid += seed;
@@ -264,15 +256,15 @@ inline bool FeatureTracker::expandEdge(Feature &f, const Vector3i &seed) {
 }
 
 void FeatureTracker::backupFeatureInfo(int direction) {
-    backup1Features = backup2Features;
-    backup2Features = backup3Features;
-    backup3Features = currentFeatures;
+    backup1Features_ = backup2Features_;
+    backup2Features_ = backup3Features_;
+    backup3Features_ = currentFeatures_;
 
     if (direction == FT_FORWARD) {
-        if (timeLeft2Forward  < 3) timeLeft2Forward++;
-        if (timeLeft2Backward > 0) timeLeft2Backward--;
+        if (timeLeft2Forward_  < 3) timeLeft2Forward_++;
+        if (timeLeft2Backward_ > 0) timeLeft2Backward_--;
     } else {    // direction is either FORWARD or BACKWARD
-        if (timeLeft2Forward  > 0) timeLeft2Forward--;
-        if (timeLeft2Backward < 3) timeLeft2Backward++;
+        if (timeLeft2Forward_  > 0) timeLeft2Forward_--;
+        if (timeLeft2Backward_ < 3) timeLeft2Backward_++;
     }
 }

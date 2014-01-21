@@ -1,24 +1,25 @@
-QMAKE_CC     = gcc
-QMAKE_CXX    = g++
-#QMAKE_CC     = /usr/local/bin/mpicc
-#QMAKE_CXX    = /usr/local/bin/mpic++
-#LIBS        += -lmpi_cxx -lmpi -lopen-rte -lopen-pal -lutil
-INCLUDEPATH += /usr/local/include \
-               /usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/include
+QMAKE_CXX       =  g++-4.8
+QMAKE_CXXFLAGS  = -std=c++11
+INCLUDEPATH     = -I/usr/local/include
+LIBS            = -L/usr/local/lib -lm
 
-QMAKE_CXXFLAGS += -fopenmp
-QMAKE_LFLAGS   += -fopenmp
-LIBS += -L/usr/local/lib \
-        -L/usr/llvm-gcc-4.2/lib/gcc/i686-apple-darwin11/4.2.1/x86_64 -lgomp
+QMAKE_LINK       = $$QMAKE_CXX
 
 SOURCES += \
     Main.cpp \
     DataManager.cpp \
     FeatureTracker.cpp \
-    BlockController.cpp
+    BlockController.cpp \
+    Metadata.cpp
 
 HEADERS += \
     DataManager.h \
     FeatureTracker.h \
     BlockController.h \
-    Utils.h
+    Utils.h \
+    Metadata.h
+
+OTHER_FILES += \
+    vorts.config \
+    jet.config \
+    supervoxel.config

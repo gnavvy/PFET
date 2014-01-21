@@ -1,30 +1,22 @@
 #include "BlockController.h"
+#include "Metadata.h"
 
-int main (int argc, char** argv) {
+using namespace std;
 
-    Metadata meta; {
-        meta.start      = 60;
-        meta.end        = 65;
-        meta.prefix     = "vorts";
-        meta.surfix     = "data";
-        meta.path       = "/Users/Yang/Develop/Data/vorts";
-        meta.tfPath     = "/Users/Yang/Develop/Data/vorts/vorts.tfe";
-        meta.timeFormat = "%d";
-        meta.volumeDim  = Vector3i(128, 128, 128);
+int main () {
+    Metadata meta("/Users/Yang/Develop/Paraft/Paraft/vorts.config");
+    int currentT = meta.start();
+
+    BlockController blockController;
+    blockController.SetCurrentTimestep(currentT);
+    blockController.InitParameters(meta);
+
+    while (currentT < meta.end()) {
+        blockController.SetCurrentTimestep(currentT);
+        blockController.TrackForward(meta);
+        currentT++;
+        cout << "-- " << currentT << " done --" << endl;
     }
 
-    int currentTimestep = meta.start;
-
-    BlockController *pBlockController = new BlockController();
-    pBlockController->SetCurrentTimestep(currentTimestep);
-    pBlockController->InitParameters(meta);
-
-    while (currentTimestep++ < meta.end) {
-        pBlockController->SetCurrentTimestep(currentTimestep);
-        pBlockController->TrackForward(meta);
-        cout << "-- " << currentTimestep << " done --" << endl;
-    }
-
-    delete pBlockController;
-    return 0;
+    return EXIT_SUCCESS;
 }

@@ -9,18 +9,17 @@ class BlockController {
 
 public:
     BlockController();
-    ~BlockController();
+   ~BlockController();
 
-    void InitParameters(const Metadata &meta);
-    void TrackForward(const Metadata &meta);
+    void InitParameters(const Metadata& meta);
+    void TrackForward(const Metadata& meta);
     void ExtractAllFeatures();
-    void SetCurrentTimestep(int t) { currentTimestep = t; }
+    void SetCurrentTimestep(int t) { currentT_ = t; }
 
 private:
-    DataManager             *pDataManager;
-    FeatureTracker          *pFeatureTracker;
-    FeatureVectorSequence    featureSequence;
-    int                      currentTimestep;
+    DataManager    *pDataManager_;
+    FeatureTracker *pFeatureTracker_;
+    int             currentT_;
 };
 
 #endif // DATABLOCKCONTROLLER_H
