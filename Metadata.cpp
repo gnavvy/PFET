@@ -3,7 +3,7 @@
 Metadata::Metadata(const string &fpath) {
     ifstream meta(fpath.c_str());
     if (!meta) {
-        cout << "cannot read meta file: " << fpath << endl;
+        std::cout << "cannot read meta file: " << fpath << std::endl;
         exit(EXIT_FAILURE);
     }
 
@@ -32,7 +32,7 @@ Metadata::Metadata(const string &fpath) {
             } else if (line.find("timeFormat") != line.npos) {
                 timeFormat_ = value;
             } else if (line.find("volumeDim") != line.npos) {
-                vector<int> dim;
+                std::vector<int> dim;
                 size_t pos = 0;
                 while ((pos = value.find(',')) != value.npos) {
                     dim.push_back(atoi(util::trim(value.substr(0, pos)).c_str()));
@@ -41,10 +41,10 @@ Metadata::Metadata(const string &fpath) {
                 dim.push_back(atoi(util::trim(value).c_str()));
 
                 if (dim.size() != 3) {
-                    cout << "incorrect volumeDim format" << endl;
+                    std::cout << "incorrect volumeDim format" << std::endl;
                     exit(EXIT_FAILURE);
                 }
-                volumeDim_ = vector3i(dim[0], dim[1], dim[2]);
+                volumeDim_ = Vec3i(dim[0], dim[1], dim[2]);
             }
         }
     }

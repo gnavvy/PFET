@@ -1,22 +1,20 @@
-#include "BlockController.h"
-#include "Metadata.h"
+#include <iostream>
+#include "MpiController.h"
 
-using namespace std;
-
-int main () {
-    Metadata meta("/Users/Yang/Develop/Paraft/Paraft/vorts.config");
-    int currentT = meta.start();
-
-    BlockController blockController;
-    blockController.SetCurrentTimestep(currentT);
-    blockController.InitParameters(meta);
-
-    while (currentT < meta.end()) {
-        blockController.SetCurrentTimestep(currentT);
-        blockController.TrackForward(meta);
-        currentT++;
-        cout << "-- " << currentT << " done --" << endl;
+int main (int argc, char **argv) {
+    if (argc != 5) {
+        std::cout << "argv[0]: " << argv[0] << std::endl;
+        std::cout << "argv[1]: " << argv[1] << std::endl;
+        std::cout << "argv[2]: " << argv[2] << std::endl;
+        std::cout << "argv[3]: " << argv[3] << std::endl;
+        std::cout << "argv[4]: " << argv[4] << std::endl;
+        std::cout << "Usage : " << argv[0] << " npx npy npz" << "argv[4]" << std::endl;
+        return EXIT_FAILURE;
     }
+
+    MpiController mc;
+    mc.InitWith(argc, argv);
+    mc.Start();
 
     return EXIT_SUCCESS;
 }

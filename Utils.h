@@ -9,9 +9,10 @@
 #include <string>
 #include <vector>
 #include <list>
-#include <map>
 
+const float DIST_THRESHOLD = 4.0;
 const float OPACITY_THRESHOLD  = 0.1;
+
 const int MIN_NUM_VOXEL_IN_FEATURE = 10;
 const int FT_DIRECT = 0;
 const int FT_LINEAR = 1;
@@ -19,6 +20,15 @@ const int FT_POLYNO = 2;
 const int FT_FORWARD  = 0;
 const int FT_BACKWARD = 1;
 const int DEFAULT_TF_RES = 1024;
+
+// Surfaces
+const int SURFACE_NULL   = -1;  // default
+const int SURFACE_LEFT   = 0;   // x = 0
+const int SURFACE_RIGHT  = 1;   // x = xs
+const int SURFACE_BOTTOM = 2;   // y = 0
+const int SURFACE_TOP    = 3;   // y = ys
+const int SURFACE_FRONT  = 4;   // z = 0
+const int SURFACE_BACK   = 5;   // z = zs
 
 using namespace std;
 
@@ -28,11 +38,11 @@ namespace util {
     public:
         T x, y, z;
         vector3(T x_ = 0, T y_ = 0, T z_ = 0) : x(x_), y(y_), z(z_) { }
-        T*       GetPointer()                           { return &x; }
-        T        VolumeSize()                           { return x * y * z; }
-        float    MagnituteSquared()                     { return x*x + y*y + z*z; }
-        float    Magnitute()                            { return sqrt((*this).MagnituteSquared()); }
-        float    DistanceFrom(vector3 const& rhs) const { return (*this - rhs).Magnitute(); }
+        T*       data()                                 { return &x; }
+        T        volumeSize()                           { return x * y * z; }
+        float    magnituteSquared()                     { return x*x + y*y + z*z; }
+        float    magnitute()                            { return sqrt((*this).magnituteSquared()); }
+        float    distanceFrom(vector3 const& rhs) const { return (*this - rhs).magnitute(); }
         vector3  operator -  ()                         { return vector3(-x, -y, -z); }
         vector3  operator +  (vector3 const& rhs) const { vector3 t(*this); t+=rhs; return t; }
         vector3  operator -  (vector3 const& rhs) const { vector3 t(*this); t-=rhs; return t; }
@@ -76,23 +86,34 @@ namespace util {
     }
 }
 
-typedef util::vector3<int> vector3i;
-typedef util::vector3<float> vector3f;
+typedef util::vector3<int> Vec3i;
+typedef util::vector3<float> Vec3f;
+
+class Edge {
+public:
+    int id, start, end;
+    Vec3i centroid;
+
+    bool operator ==(Edge const& rhs) const {
+        Edge lhs(*this);
+        if (lhs.id==rhs.id && lhs.start==rhs.start && lhs.end==rhs.end) {
+            return true;
+        } else return false;
+    }
+};  // start --id--> end @ centroid
 
 struct Feature {
-    int             id;         // Unique ID for each feature
-    float           maskValue;  // Used to record the color of the feature
-    list<vector3i>  edgeVoxels; // Edge information of the feature
-    list<vector3i>  bodyVoxels; // All the voxels in the feature
-    vector3i        centroid;   // Centers position of the feature
+    int   id;                   // Unique ID for each feature
+    float maskValue;            // Used to record the color of the feature
+    Vec3i centroid;             // Centers position of the feature
+    Vec3i min;                  // Minimum position (x,y,z) on boundary
+    Vec3i max;                  // Maximum position (x,y,z) on boundary
+    Vec3i boundaryCentroid[6];  // center point on boundary surface
+    Vec3i boundaryMin[6];       // min value on boundary surface
+    Vec3i boundaryMax[6];       // max value on boundary surface
+    std::list<Vec3i> edgeVoxels; // Edge information of the feature
+    std::list<Vec3i> bodyVoxels; // All the voxels in the feature
+    std::vector<int> touchedSurfaces;
 };
-
-struct Cluster {
-    vector3i center;
-    int numVoxels;
-};
-
-typedef unordered_map<int, float*> DataSequence;
-typedef unordered_map<int, vector<Feature> > FeatureVectorSequence;
 
 #endif // CONSTS_H
