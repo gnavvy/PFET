@@ -11,7 +11,6 @@ BlockController::BlockController() {
 }
 
 BlockController::~BlockController() {
-    localGraph_.clear();
     pDataManager_->~DataManager();
     pFeatureTracker_->~FeatureTracker();
 }

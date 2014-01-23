@@ -1,26 +1,12 @@
 #include "FeatureTracker.h"
 
-FeatureTracker::FeatureTracker(vec3i dim) : blockDim_(dim) {
-    maskValue_ = 0.0f;
-    tfRes_ = 1024;
+FeatureTracker::FeatureTracker(vec3i dim) : blockDim_(dim), maskValue_(0.0f), tfRes_(1024) {
     volumeSize_ = blockDim_.volumeSize();
     mask_ = std::vector<float>(volumeSize_);
     maskPrev_ = std::vector<float>(volumeSize_);
 }
 
-FeatureTracker::~FeatureTracker() {
-    if (featureSequence_.size() > 0) {
-        for (auto it = featureSequence_.begin(); it != featureSequence_.end(); ++it) {
-            std::vector<Feature> featureVector = it->second;
-            for (unsigned int i = 0; i < featureVector.size(); ++i) {
-                Feature f = featureVector[i];
-                f.edgeVoxels.clear();
-                f.bodyVoxels.clear();
-                // todo
-            }
-        }
-    }
-}
+FeatureTracker::~FeatureTracker() {}
 
 void FeatureTracker::ExtractAllFeatures() {
     for (int z = 0; z < blockDim_.z; ++z) {
