@@ -7,12 +7,12 @@ Metadata::Metadata(const string &fpath) {
         exit(EXIT_FAILURE);
     }
 
-    string line;
+    std::string line;
     while (getline(meta, line)) {
         size_t pos = line.find('=');
         if (pos == line.npos) { continue; }
 
-        string value = util::trim(line.substr(pos+1));
+        std::string value = util::trim(line.substr(pos+1));
         if (line.find("start") != line.npos) {
             start_ = atoi(value.c_str());
         } else if (line.find("end") != line.npos) {
@@ -44,7 +44,7 @@ Metadata::Metadata(const string &fpath) {
                     std::cout << "incorrect volumeDim format" << std::endl;
                     exit(EXIT_FAILURE);
                 }
-                volumeDim_ = Vec3i(dim[0], dim[1], dim[2]);
+                volumeDim_ = vec3i(dim[0], dim[1], dim[2]);
             }
         }
     }

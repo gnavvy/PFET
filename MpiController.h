@@ -30,8 +30,8 @@ private:
     int numProc;
     int currentT;  // current timestep
 
-    Vec3i gridDim;  // #processes in each dimension (xyz)
-    Vec3i blockIdx; // xyz coordinate of current processor
+    vec3i gridDim;  // #processes in each dimension (xyz)
+    vec3i blockIdx; // xyz coordinate of current processor
 
     // for global graph
     int globalEdgeCount;
@@ -50,7 +50,6 @@ private:
     FeatureTable featureTable;
     std::unordered_map<int, FeatureTable> featureTableVector; // for time varying data
 
-    void initBlockController();
     void mergeCorrespondentEdges(std::vector<Edge> edges);
 };
 

@@ -8,6 +8,7 @@
 #include <cmath>
 #include <string>
 #include <vector>
+#include <array>
 #include <list>
 
 const float DIST_THRESHOLD = 4.0;
@@ -23,41 +24,41 @@ const int DEFAULT_TF_RES = 1024;
 
 // Surfaces
 const int SURFACE_NULL   = -1;  // default
-const int SURFACE_LEFT   = 0;   // x = 0
-const int SURFACE_RIGHT  = 1;   // x = xs
-const int SURFACE_BOTTOM = 2;   // y = 0
-const int SURFACE_TOP    = 3;   // y = ys
-const int SURFACE_FRONT  = 4;   // z = 0
-const int SURFACE_BACK   = 5;   // z = zs
+const int LEFT   = 0;   // x = 0
+const int RIGHT  = 1;   // x = xs-1
+const int BOTTOM = 2;   // y = 0
+const int TOP    = 3;   // y = ys-1
+const int FRONT  = 4;   // z = 0
+const int BACK   = 5;   // z = zs-1
 
 using namespace std;
 
 namespace util {
     template<class T>
-    class vector3 {
+    class vec3 {
     public:
         T x, y, z;
-        vector3(T x_ = 0, T y_ = 0, T z_ = 0) : x(x_), y(y_), z(z_) { }
-        T*       data()                                 { return &x; }
-        T        volumeSize()                           { return x * y * z; }
-        float    magnituteSquared()                     { return x*x + y*y + z*z; }
-        float    magnitute()                            { return sqrt((*this).magnituteSquared()); }
-        float    distanceFrom(vector3 const& rhs) const { return (*this - rhs).magnitute(); }
-        vector3  operator -  ()                         { return vector3(-x, -y, -z); }
-        vector3  operator +  (vector3 const& rhs) const { vector3 t(*this); t+=rhs; return t; }
-        vector3  operator -  (vector3 const& rhs) const { vector3 t(*this); t-=rhs; return t; }
-        vector3  operator *  (vector3 const& rhs) const { vector3 t(*this); t*=rhs; return t; }
-        vector3  operator /  (vector3 const& rhs) const { vector3 t(*this); t/=rhs; return t; }
-        vector3  operator *  (float scale)        const { vector3 t(*this); t*=scale; return t; }
-        vector3  operator /  (float scale)        const { vector3 t(*this); t/=scale; return t; }
-        vector3& operator += (vector3 const& rhs)       { x+=rhs.x, y+=rhs.y, z+=rhs.z; return *this; }
-        vector3& operator -= (vector3 const& rhs)       { x-=rhs.x, y-=rhs.y, z-=rhs.z; return *this; }
-        vector3& operator *= (vector3 const& rhs)       { x*=rhs.x, y*=rhs.y, z*=rhs.z; return *this; }
-        vector3& operator /= (vector3 const& rhs)       { x/=rhs.x, y/=rhs.y, z/=rhs.z; return *this; }
-        vector3& operator *= (float scale)              { x*=scale, y*=scale, z*=scale; return *this; }
-        vector3& operator /= (float scale)              { x/=scale, y/=scale, z/=scale; return *this; }
-        bool     operator == (vector3 const& rhs) const { return x==rhs.x && y==rhs.y && z==rhs.z; }
-        bool     operator != (vector3 const& rhs) const { return !(*this == rhs); }
+        vec3(T x_ = 0, T y_ = 0, T z_ = 0) : x(x_), y(y_), z(z_) { }
+        T*    data()                              { return &x; }
+        T     volumeSize()                        { return x * y * z; }
+        float magnituteSquared()                  { return x*x + y*y + z*z; }
+        float magnitute()                         { return sqrt((*this).magnituteSquared()); }
+        float distanceFrom(vec3 const& rhs) const { return (*this - rhs).magnitute(); }
+        vec3  operator -  ()                      { return vec3(-x, -y, -z); }
+        vec3  operator +  (vec3 const& rhs) const { vec3 t(*this); t+=rhs; return t; }
+        vec3  operator -  (vec3 const& rhs) const { vec3 t(*this); t-=rhs; return t; }
+        vec3  operator *  (vec3 const& rhs) const { vec3 t(*this); t*=rhs; return t; }
+        vec3  operator /  (vec3 const& rhs) const { vec3 t(*this); t/=rhs; return t; }
+        vec3  operator *  (float scale)     const { vec3 t(*this); t*=scale; return t; }
+        vec3  operator /  (float scale)     const { vec3 t(*this); t/=scale; return t; }
+        vec3& operator += (vec3 const& rhs)       { x+=rhs.x, y+=rhs.y, z+=rhs.z; return *this; }
+        vec3& operator -= (vec3 const& rhs)       { x-=rhs.x, y-=rhs.y, z-=rhs.z; return *this; }
+        vec3& operator *= (vec3 const& rhs)       { x*=rhs.x, y*=rhs.y, z*=rhs.z; return *this; }
+        vec3& operator /= (vec3 const& rhs)       { x/=rhs.x, y/=rhs.y, z/=rhs.z; return *this; }
+        vec3& operator *= (float scale)           { x*=scale, y*=scale, z*=scale; return *this; }
+        vec3& operator /= (float scale)           { x/=scale, y/=scale, z/=scale; return *this; }
+        bool  operator == (vec3 const& rhs) const { return x==rhs.x && y==rhs.y && z==rhs.z; }
+        bool  operator != (vec3 const& rhs) const { return !(*this == rhs); }
     };
 
     static inline string ltrim(const string &s) {    // trim string from left
@@ -69,7 +70,7 @@ namespace util {
         return s.substr(0, s.find_last_not_of(' ')+1);
     }
 
-    static inline string trim(const string &s) {     // trim all whitesapces
+    static inline string trim(const string &s) {     // trim all white spaces
         return ltrim(rtrim(s));
     }
 
@@ -84,15 +85,22 @@ namespace util {
     static inline int round(float f) {
         return static_cast<int>(floor(f + 0.5f));
     }
+
+    static inline vec3<int> min(const vec3<int>& v1, const vec3<int>& v2) {
+        return vec3<int>(std::min(v1.x, v2.x), std::min(v1.y, v2.y), std::min(v1.z, v2.z));
+    }
+
+    static inline vec3<int> max(const vec3<int>& v1, const vec3<int>& v2) {
+        return vec3<int>(std::max(v1.x, v2.x), std::max(v1.y, v2.y), std::max(v1.z, v2.z));
+    }
 }
 
-typedef util::vector3<int> Vec3i;
-typedef util::vector3<float> Vec3f;
+typedef util::vec3<int> vec3i;
 
 class Edge {
 public:
     int id, start, end;
-    Vec3i centroid;
+    vec3i centroid;
 
     bool operator ==(Edge const& rhs) const {
         Edge lhs(*this);
@@ -103,16 +111,17 @@ public:
 };  // start --id--> end @ centroid
 
 struct Feature {
-    int   id;                   // Unique ID for each feature
-    float maskValue;            // Used to record the color of the feature
-    Vec3i centroid;             // Centers position of the feature
-    Vec3i min;                  // Minimum position (x,y,z) on boundary
-    Vec3i max;                  // Maximum position (x,y,z) on boundary
-    Vec3i boundaryCentroid[6];  // center point on boundary surface
-    Vec3i boundaryMin[6];       // min value on boundary surface
-    Vec3i boundaryMax[6];       // max value on boundary surface
-    std::list<Vec3i> edgeVoxels; // Edge information of the feature
-    std::list<Vec3i> bodyVoxels; // All the voxels in the feature
+    int   id;        // Unique ID for each feature
+    float maskValue; // color id of the feature
+    vec3i ctr;       // Centroid position of the feature
+    vec3i min;       // Minimum position (x, y, z) of the feature
+    vec3i max;       // Maximum position (x, y, z) of the feature
+    std::array<vec3i, 6> boundaryCtr; // center point on each boundary surface
+    std::array<vec3i, 6> boundaryMin; // min value on each boundary surface
+    std::array<vec3i, 6> boundaryMax; // max value on each boundary surface
+    std::array<int, 6> numVoxelOnSurface; // number of voxels on each boundary surface
+    std::list<vec3i> edgeVoxels; // Edge information of the feature
+    std::list<vec3i> bodyVoxels; // All the voxels in the feature
     std::vector<int> touchedSurfaces;
 };
 

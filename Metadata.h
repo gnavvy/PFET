@@ -12,7 +12,7 @@ public:
     string   path()       const { return path_; }
     string   tfPath()     const { return tfPath_; }
     string   timeFormat() const { return timeFormat_; }
-    Vec3i    volumeDim()  const { return volumeDim_; }
+    vec3i    volumeDim()  const { return volumeDim_; }
 
     Metadata(const std::string &fpath);
    ~Metadata();
@@ -25,7 +25,7 @@ private:
     string   path_;
     string   tfPath_;
     string   timeFormat_;
-    Vec3i    volumeDim_;
+    vec3i    volumeDim_;
 };
 
 #endif // METADATA_H

@@ -13,17 +13,17 @@ public:
     float* GetDataPtr(int t) { return dataSequence_[t]; }
     float* GetTFMap()        { return pTFMap_; }
     int GetTFRes()           { return tfRes_ > 0 ? tfRes_ : DEFAULT_TF_RES; }
-    Vec3i GetBlockDim()      { return blockDim_; }
+    vec3i GetBlockDim()      { return blockDim_; }
 
     void InitTF(const Metadata& meta);
-    void LoadDataSequence(const Metadata& meta, const Vec3i& gridDim, const Vec3i& blockIdx, const int currentT);
+    void LoadDataSequence(const Metadata& meta, const vec3i& gridDim, const vec3i& blockIdx, const int currentT);
     void SaveMaskVolume(float *pData, const Metadata& meta, const int timestep);
 
 private:
     void preprocessData(float *pData);
 
     std::unordered_map<int, float*> dataSequence_;
-    Vec3i blockDim_;
+    vec3i blockDim_;
 
     int volumeSize_;
     int tfRes_;

@@ -48,8 +48,8 @@ void DataManager::SaveMaskVolume(float* pData, const Metadata &meta, const int t
     std::cout << "mask volume created: " << fpath << std::endl;
 }
 
-void DataManager::LoadDataSequence(const Metadata& meta, const Vec3i& gridDim, 
-    const Vec3i& blockIdx, const int currentT) {
+void DataManager::LoadDataSequence(const Metadata& meta, const vec3i& gridDim, 
+    const vec3i& blockIdx, const int currentT) {
 
     blockDim_ = meta.volumeDim() / gridDim;
     volumeSize_ = blockDim_.volumeSize();
@@ -101,8 +101,6 @@ void DataManager::LoadDataSequence(const Metadata& meta, const Vec3i& gridDim,
 
         // 4. nomalize data - parallel
         preprocessData(dataSequence_[t]);
-
-        std::cout << " + " << t << std::endl;
     }
 }
 
