@@ -112,49 +112,48 @@ void FeatureTracker::TrackFeature(float* pData, int direction, int mode) {
 inline vec3i FeatureTracker::predictRegion(int index, int direction, int mode) {
     int timestepsAvailable = direction == FT_BACKWARD ? timeLeft2Backward_ : timeLeft2Forward_;
 
-    vec3i off;   // offset
+    vec3i offset;
     Feature b1f = backup1Features_[index];
     Feature b2f = backup2Features_[index];
     Feature b3f = backup3Features_[index];
 
-    int tmp;
     switch (mode) {
         case FT_DIRECT: // PREDICT_DIRECT
             break;
         case FT_LINEAR: // PREDICT_LINEAR
             if (timestepsAvailable > 1) {
                 if (direction == FT_BACKWARD) {
-                    off = b2f.ctr - b1f.ctr;
+                    offset = b2f.ctr - b1f.ctr;
                 } else {  // Tracking forward as default
-                    off = b3f.ctr - b2f.ctr;
+                    offset = b3f.ctr - b2f.ctr;
                 }
-                for (auto p = b3f.edgeVoxels.begin(); p != b3f.edgeVoxels.end(); ++p) {
-                    tmp = (*p).x + (int)floor(off.x); (*p).x = tmp <= 0 ? 0 : (tmp < blockDim_.x ? tmp : blockDim_.x-1);
-                    tmp = (*p).y + (int)floor(off.y); (*p).y = tmp <= 0 ? 0 : (tmp < blockDim_.y ? tmp : blockDim_.y-1);
-                    tmp = (*p).z + (int)floor(off.z); (*p).z = tmp <= 0 ? 0 : (tmp < blockDim_.z ? tmp : blockDim_.z-1);
+                for (auto& voxel : b3f.edgeVoxels) {
+                    voxel += offset;
+                    voxel = util::min(voxel, blockDim_-vec3i(1,1,1));   // x, y, z at most dim-1
+                    voxel = util::max(voxel, vec3i());  // x, y, z at least 0
                 }
             }
         break;
         case FT_POLYNO: // PREDICT_POLY
             if (timestepsAvailable > 1) {
                 if (timestepsAvailable > 2) {
-                    off = b3f.ctr*2 - b2f.ctr*3 + b1f.ctr;
+                    offset = b3f.ctr*2 - b2f.ctr*3 + b1f.ctr;
                 } else {    // [1,2)
                     if (direction == FT_BACKWARD) {
-                        off = b2f.ctr - b1f.ctr;
+                        offset = b2f.ctr - b1f.ctr;
                     } else {  // Tracking forward as default
-                        off = b3f.ctr - b2f.ctr;
+                        offset = b3f.ctr - b2f.ctr;
                     }
                 }
-                for (auto p = b3f.edgeVoxels.begin(); p != b3f.edgeVoxels.end(); ++p) {
-                    tmp = (*p).x + (int)floor(off.x); (*p).x = tmp <= 0 ? 0 : (tmp < blockDim_.x ? tmp : blockDim_.x-1);
-                    tmp = (*p).y + (int)floor(off.y); (*p).y = tmp <= 0 ? 0 : (tmp < blockDim_.y ? tmp : blockDim_.y-1);
-                    tmp = (*p).z + (int)floor(off.z); (*p).z = tmp <= 0 ? 0 : (tmp < blockDim_.z ? tmp : blockDim_.z-1);
+                for (auto& voxel : b3f.edgeVoxels) {
+                    voxel += offset;
+                    voxel = util::min(voxel, blockDim_-vec3i(1,1,1));   // x, y, z at most dim-1
+                    voxel = util::max(voxel, vec3i());  // x, y, z at least 0
                 }
             }
         break;
     }
-    return off;
+    return offset;
 }
 
 // from here! Jan 22nd
@@ -168,15 +167,6 @@ inline void FeatureTracker::fillRegion(Feature &f, const vec3i& offset) {
         f.bodyVoxels.push_back(voxel);
         f.ctr += voxel;
     }
-
-    // for (auto p = f.edgeVoxels.begin(); p != f.edgeVoxels.end(); ++p) {
-    //     int index = GetVoxelIndex(*p);
-    //     if (mask_[index] == 0) {
-    //         mask_[index] = f.maskValue;
-    //     }
-    //     f.bodyVoxels.push_back(*p);
-    //     f.ctr += (*p);
-    // }
 
     // currently not on edge but previously on edge
     for (auto voxel : f.edgeVoxels) {
@@ -194,21 +184,6 @@ inline void FeatureTracker::fillRegion(Feature &f, const vec3i& offset) {
             f.ctr += voxel;
         }
     }
-
-    // for (auto p = f.edgeVoxels.begin(); p != f.edgeVoxels.end(); ++p) {
-    //     int index = GetVoxelIndex(*p);
-    //     int indexPrev = GetVoxelIndex((*p)-offset);
-    //     while ((*p).x >= 0 && (*p).x <= blockDim_.x && (*p).x - offset.x >= 0 && (*p).x - offset.x <= blockDim_.x &&
-    //            (*p).y >= 0 && (*p).y <= blockDim_.y && (*p).y - offset.y >= 0 && (*p).y - offset.y <= blockDim_.y &&
-    //            (*p).z >= 0 && (*p).z <= blockDim_.z && (*p).z - offset.z >= 0 && (*p).z - offset.z <= blockDim_.z &&
-    //            mask_[index] == 0 && maskPrev_[indexPrev] == f.maskValue) {
-
-    //         // Mark all points: 1. currently = 1; 2. currently = 0 but previously = 1;
-    //         mask_[index] = f.maskValue;
-    //         f.bodyVoxels.push_back(*p);
-    //         f.ctr += (*p);
-    //     }
-    // }
 }
 
 inline void FeatureTracker::shrinkRegion(Feature &f) {
@@ -240,12 +215,12 @@ inline void FeatureTracker::shrinkRegion(Feature &f) {
         if (voxelOnEdge) { f.edgeVoxels.push_back(voxel); }
     }
 
-    for (list<vec3i>::iterator p = f.edgeVoxels.begin(); p != f.edgeVoxels.end(); ++p) {
-        int index = GetVoxelIndex(*p);
+    for (auto voxel : f.edgeVoxels) {
+        int index = GetVoxelIndex(voxel);
         if (mask_[index] != f.maskValue) {
             mask_[index] = f.maskValue;
-            f.bodyVoxels.push_back(*p);
-            f.ctr += (*p);
+            f.bodyVoxels.push_back(voxel);
+            f.ctr += voxel;
         }
     }
 }

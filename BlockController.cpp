@@ -71,8 +71,6 @@ void BlockController::UpdateLocalGraph(int blockID, const vec3i& blockIdx) {
         Feature feature = pFeatures->at(i);
         std::vector<int> touchedSurfaces = feature.touchedSurfaces;
 
-std::cout << "touchedSurfaces.size(): " << touchedSurfaces.size() << std::endl;
-
         for (unsigned int j = 0; j < touchedSurfaces.size(); ++j) {
             int surface = touchedSurfaces[j];
             int adjacentBlock = adjacentBlocks_[surface];
