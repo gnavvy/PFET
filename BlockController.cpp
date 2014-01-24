@@ -3,11 +3,7 @@
 #include "DataManager.h"
 #include "FeatureTracker.h"
 
-BlockController::BlockController() {
-    // for (int surface = 0; surface < 6; ++surface) {
-    //     adjacentBlocks[surface] = SURFACE_NULL;
-    // }
-}
+BlockController::BlockController() {}
 
 BlockController::~BlockController() {
     pDataManager->~DataManager();
@@ -35,7 +31,7 @@ void BlockController::TrackForward(const Metadata& meta, const vec3i& gridDim, c
     pFeatureTracker->SaveExtractedFeatures(currentT);
 
     // pDataManager->SaveMaskVolume(pFeatureTracker->GetMaskPtr(), meta, currentT);
-    pDataManager->SaveMaskVolumeMpi(pFeatureTracker->GetMaskPtr(), meta, currentT);
+    // pDataManager->SaveMaskVolumeMpi(pFeatureTracker->GetMaskPtr(), meta, currentT);
 }
 
 void BlockController::initAdjacentBlocks(const vec3i& gridDim, const vec3i& blockIdx) {
@@ -64,25 +60,20 @@ void BlockController::UpdateLocalGraph(int blockID, const vec3i& blockIdx) {
     localGraph.clear();
 
     std::vector<Feature> *pFeatures = pFeatureTracker->GetFeatureVectorPtr(currentT);
-
     for (unsigned int i = 0; i < pFeatures->size(); ++i) {
-        Feature feature = pFeatures->at(i);
-        std::vector<int> touchedSurfaces = feature.touchedSurfaces;
+        Feature f = pFeatures->at(i);
 
-        for (unsigned int j = 0; j < touchedSurfaces.size(); ++j) {
-            int surface = touchedSurfaces[j];
+        for (int surface : f.touchedSurfaces) {
             int adjacentBlock = adjacentBlocks[surface];
             if (adjacentBlock == -1) {
                 continue;
             }
 
-            vec3i centroid = feature.boundaryCtr[surface];
-
             Edge edge;
-            edge.id         = feature.id;
+            edge.id         = f.id;
             edge.start      = blockID;
             edge.end        = adjacentBlock;
-            edge.centroid   = centroid + blockDim * blockIdx;
+            edge.centroid   = f.boundaryCtr[surface] + blockDim * blockIdx;
 
             localGraph.push_back(edge);
         }

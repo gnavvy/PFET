@@ -55,7 +55,6 @@ private:
     std::array<vec3i, 6> boundaryCtr;  // centroid of the boundary surface
     std::array<vec3i, 6> boundaryMin;  // min values of the boundary surface
     std::array<vec3i, 6> boundaryMax;  // max values of the boundary surface
-    std::array<int, 6> numVoxelOnBounday;
 
     std::vector<float> data;        // Raw volume intensity value
     std::vector<float> mask;        // Mask volume, same size with a time step data

@@ -53,16 +53,12 @@ void FeatureTracker::FindNewFeature(vec3i seed) {
 
     expandRegion(f);
 
-std::cout << f.bodyVoxels.size() << std::endl;
-
     if (static_cast<int>(f.bodyVoxels.size()) < MIN_NUM_VOXEL_IN_FEATURE) {
         maskValue--; 
         return;
     }
 
-std::cout << "currentFeatures.size: " << currentFeatures.size() << "->";
     currentFeatures.push_back(f);
-std::cout << currentFeatures.size() << std::endl;
     backup1Features = currentFeatures;
     backup2Features = currentFeatures;
     backup3Features = currentFeatures;
@@ -303,7 +299,7 @@ void FeatureTracker::updateFeatureBoundary(Feature& f, const vec3i& voxel, int s
     f.boundaryMin[surface] = util::min(f.boundaryMin[surface], voxel);
     f.boundaryMax[surface] = util::max(f.boundaryMax[surface], voxel);
     f.boundaryCtr[surface] += voxel;
-    numVoxelOnBounday[surface]++;
+    f.numVoxelOnSurface[surface]++;
 }
 
 void FeatureTracker::backupFeatureInfo(int direction) {
