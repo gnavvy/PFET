@@ -7,27 +7,26 @@ class Metadata;
 class DataManager {
 
 public:
-    DataManager();
+    DataManager(const Metadata &meta);
    ~DataManager();
 
-    float* GetDataPtr(int t) { return dataSequence_[t]; }
-    float* GetTFMap()        { return pTFMap_; }
-    int GetTFRes()           { return tfRes_ > 0 ? tfRes_ : DEFAULT_TF_RES; }
-    vec3i GetBlockDim()      { return blockDim_; }
+    float* GetDataPtr(int t) { return dataSequence[t].data(); }
+    float* GetTFMap()        { return tfMap.data(); }
+    int GetTFRes()           { return tfRes > 0 ? tfRes : DEFAULT_TF_RES; }
+    vec3i GetBlockDim()      { return blockDim; }
 
-    void InitTF(const Metadata& meta);
     void LoadDataSequence(const Metadata& meta, const vec3i& gridDim, const vec3i& blockIdx, const int currentT);
     void SaveMaskVolume(float *pData, const Metadata& meta, const int timestep);
 
 private:
-    void preprocessData(float *pData);
+    void preprocessData(std::vector<float>& data);
 
-    std::unordered_map<int, float*> dataSequence_;
-    vec3i blockDim_;
+    std::unordered_map<int, std::vector<float> > dataSequence;
+    std::vector<float> tfMap;
+    vec3i blockDim;
 
-    int volumeSize_;
-    int tfRes_;
-    float *pTFMap_;
+    int volumeSize;
+    int tfRes;
 };
 
 #endif // DATAMANAGER_H

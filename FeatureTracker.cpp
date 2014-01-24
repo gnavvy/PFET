@@ -1,9 +1,9 @@
 #include "FeatureTracker.h"
 
-FeatureTracker::FeatureTracker(vec3i dim) : blockDim_(dim), maskValue_(0.0f), tfRes_(1024) {
-    volumeSize_ = blockDim_.volumeSize();
-    mask_ = std::vector<float>(volumeSize_);
-    maskPrev_ = std::vector<float>(volumeSize_);
+FeatureTracker::FeatureTracker(vec3i dim) : blockDim_(dim), maskValue(0.0f), tfRes(1024) {
+    volumeSize = blockDim_.volumeSize();
+    mask = std::vector<float>(volumeSize);
+    maskPrev = std::vector<float>(volumeSize);
 }
 
 FeatureTracker::~FeatureTracker() {}
@@ -13,9 +13,9 @@ void FeatureTracker::ExtractAllFeatures() {
         for (int y = 0; y < blockDim_.y; ++y) {
             for (int x = 0; x < blockDim_.x; ++x) {
                 int index = GetVoxelIndex(vec3i(x, y, z));
-                if (mask_[index] > 0) continue; // point already within a feature
-                int tfindex = (int)(data_[index] * (tfRes_-1));
-                if (tfMap_[tfindex] >= OPACITY_THRESHOLD) {
+                if (mask[index] > 0) continue; // point already within a feature
+                int tfindex = (int)(data[index] * (tfRes-1));
+                if (tfMap[tfindex] >= OPACITY_THRESHOLD) {
                     FindNewFeature(vec3i(x,y,z));
                 }
             }
@@ -43,38 +43,38 @@ Feature FeatureTracker::createNewFeature() {
 }
 
 void FeatureTracker::FindNewFeature(vec3i seed) {
-    maskValue_ += 1.0f;
+    maskValue += 1.0f;
     Feature f = createNewFeature();
-    f.maskValue = maskValue_;
+    f.maskValue = maskValue;
     f.edgeVoxels.push_back(seed);
 
     expandRegion(f);
 
     if (static_cast<int>(f.bodyVoxels.size()) < MIN_NUM_VOXEL_IN_FEATURE) {
-        maskValue_ -= 1.0f; 
+        maskValue -= 1.0f; 
         return;
     }
 
-    currentFeatures_.push_back(f);
-    backup1Features_ = currentFeatures_;
-    backup2Features_ = currentFeatures_;
-    backup3Features_ = currentFeatures_;
+    currentFeatures.push_back(f);
+    backup1Features = currentFeatures;
+    backup2Features = currentFeatures;
+    backup3Features = currentFeatures;
 }
 
 void FeatureTracker::TrackFeature(float* pData, int direction, int mode) {
-    if (tfMap_.size() == 0 || tfRes_ <= 0) {
+    if (tfMap.size() == 0 || tfRes <= 0) {
         std::cout << "Set TF pointer first." << std::endl;
         exit(EXIT_FAILURE);
     }
 
-    data_.assign(pData, pData+volumeSize_);
+    data.assign(pData, pData+volumeSize);
 
     // backup mask to maskPrev then clear mask
-    maskPrev_.clear();
-    maskPrev_.swap(mask_);
+    maskPrev.clear();
+    maskPrev.swap(mask);
 
-    for (unsigned int i = 0; i < currentFeatures_.size(); ++i) {
-        Feature f = currentFeatures_[i];
+    for (unsigned int i = 0; i < currentFeatures.size(); ++i) {
+        Feature f = currentFeatures[i];
 
         // start from here
         vec3i offset = predictRegion(i, direction, mode);
@@ -84,10 +84,10 @@ void FeatureTracker::TrackFeature(float* pData, int direction, int mode) {
 
         if (static_cast<int>(f.bodyVoxels.size()) < MIN_NUM_VOXEL_IN_FEATURE) {
             // todo: remove feature that is too small
-            currentFeatures_[i] = createNewFeature();
+            currentFeatures[i] = createNewFeature();
             continue;
         } else {
-            currentFeatures_[i] = f;    
+            currentFeatures[i] = f;    
         }
     }
 
@@ -96,12 +96,12 @@ void FeatureTracker::TrackFeature(float* pData, int direction, int mode) {
 }
 
 inline vec3i FeatureTracker::predictRegion(int index, int direction, int mode) {
-    int timestepsAvailable = direction == FT_BACKWARD ? timeLeft2Backward_ : timeLeft2Forward_;
+    int timestepsAvailable = direction == FT_BACKWARD ? timeLeft2Backward : timeLeft2Forward;
 
     vec3i offset;
-    Feature b1f = backup1Features_[index];
-    Feature b2f = backup2Features_[index];
-    Feature b3f = backup3Features_[index];
+    Feature b1f = backup1Features[index];
+    Feature b2f = backup2Features[index];
+    Feature b3f = backup3Features[index];
 
     switch (mode) {
         case FT_DIRECT: // PREDICT_DIRECT
@@ -147,8 +147,8 @@ inline void FeatureTracker::fillRegion(Feature &f, const vec3i& offset) {
     // predicted to be on edge
     for (auto voxel : f.edgeVoxels) {
         int index = GetVoxelIndex(voxel);
-        if (mask_[index] == 0) {
-            mask_[index] = f.maskValue;
+        if (mask[index] == 0) {
+            mask[index] = f.maskValue;
         }
         f.bodyVoxels.push_back(voxel);
         f.ctr += voxel;
@@ -162,10 +162,10 @@ inline void FeatureTracker::fillRegion(Feature &f, const vec3i& offset) {
         if (voxel.x >= 0 && voxel.x <= blockDim_.x && voxelPrev.x >= 0 && voxelPrev.x <= blockDim_.x &&
             voxel.y >= 0 && voxel.y <= blockDim_.y && voxelPrev.y >= 0 && voxelPrev.y <= blockDim_.y &&
             voxel.z >= 0 && voxel.z <= blockDim_.z && voxelPrev.z >= 0 && voxelPrev.z <= blockDim_.z &&
-            mask_[index] == 0 && maskPrev_[indexPrev] == f.maskValue) {
+            mask[index] == 0 && maskPrev[indexPrev] == f.maskValue) {
 
             // mark voxels that: 1. currently = 1; or 2. currently = 0 but previously = 1;
-            mask_[index] = f.maskValue;
+            mask[index] = f.maskValue;
             f.bodyVoxels.push_back(voxel);
             f.ctr += voxel;
         }
@@ -186,7 +186,7 @@ inline void FeatureTracker::shrinkRegion(Feature &f) {
 
         int index = GetVoxelIndex(voxel);
         bool voxelOnEdge = false;
-        if (getOpacity(data_[index]) < OPACITY_THRESHOLD) {
+        if (getOpacity(data[index]) < OPACITY_THRESHOLD) {
             voxelOnEdge = false;
             // if point is invisible, mark its adjacent points as 0
             shrinkEdge(f, voxel);                                               // center
@@ -196,15 +196,15 @@ inline void FeatureTracker::shrinkRegion(Feature &f) {
             if (--voxel.x >= 0)          { shrinkEdge(f, voxel); } voxel.x++;   // left
             if (--voxel.y >= 0)          { shrinkEdge(f, voxel); } voxel.y++;   // bottom
             if (--voxel.z >= 0)          { shrinkEdge(f, voxel); } voxel.z++;   // front
-        } else if (mask_[index] == 0.0f) { voxelOnEdge = true; }
+        } else if (mask[index] == 0.0f) { voxelOnEdge = true; }
 
         if (voxelOnEdge) { f.edgeVoxels.push_back(voxel); }
     }
 
     for (auto voxel : f.edgeVoxels) {
         int index = GetVoxelIndex(voxel);
-        if (mask_[index] != f.maskValue) {
-            mask_[index] = f.maskValue;
+        if (mask[index] != f.maskValue) {
+            mask[index] = f.maskValue;
             f.bodyVoxels.push_back(voxel);
             f.ctr += voxel;
         }
@@ -213,8 +213,8 @@ inline void FeatureTracker::shrinkRegion(Feature &f) {
 
 inline void FeatureTracker::shrinkEdge(Feature& f, const vec3i& voxel) {
     int index = GetVoxelIndex(voxel);
-    if (mask_[index] == f.maskValue) {
-        mask_[index] = 0;  // shrink
+    if (mask[index] == f.maskValue) {
+        mask[index] = 0;  // shrink
         auto it = std::find(f.bodyVoxels.begin(), f.bodyVoxels.end(), voxel);
         if (it != f.bodyVoxels.end()) {
             f.bodyVoxels.erase(it);    
@@ -263,14 +263,14 @@ inline void FeatureTracker::expandRegion(Feature& f) {
 inline bool FeatureTracker::expandEdge(Feature& f, const vec3i& voxel) {
     int index = GetVoxelIndex(voxel);
 
-    if (mask_[index] > 0 || getOpacity(data_[index]) < OPACITY_THRESHOLD) {
+    if (mask[index] > 0 || getOpacity(data[index]) < OPACITY_THRESHOLD) {
         // this neighbor voxel is already labeled, or the opacity is not large enough
         // to be labeled as within the feature, so the original seed is still on edge.
         return true;
     }
 
     // update feature info
-    mask_[index] = f.maskValue;
+    mask[index] = f.maskValue;
     f.min = util::min(f.min, voxel);
     f.max = util::max(f.max, voxel);
     f.ctr += voxel;  // averaged later
@@ -292,19 +292,19 @@ void FeatureTracker::updateFeatureBoundary(Feature& f, const vec3i& voxel, int s
     f.boundaryMin[surface] = util::min(f.boundaryMin[surface], voxel);
     f.boundaryMax[surface] = util::max(f.boundaryMax[surface], voxel);
     f.boundaryCtr[surface] += voxel;
-    numVoxelOnBounday_[surface]++;
+    numVoxelOnBounday[surface]++;
 }
 
 void FeatureTracker::backupFeatureInfo(int direction) {
-    backup1Features_ = backup2Features_;
-    backup2Features_ = backup3Features_;
-    backup3Features_ = currentFeatures_;
+    backup1Features = backup2Features;
+    backup2Features = backup3Features;
+    backup3Features = currentFeatures;
 
     if (direction == FT_FORWARD) {
-        if (timeLeft2Forward_  < 3) ++timeLeft2Forward_;
-        if (timeLeft2Backward_ > 0) --timeLeft2Backward_;
+        if (timeLeft2Forward  < 3) ++timeLeft2Forward;
+        if (timeLeft2Backward > 0) --timeLeft2Backward;
     } else {    // direction is either FORWARD or BACKWARD
-        if (timeLeft2Forward_  > 0) --timeLeft2Forward_;
-        if (timeLeft2Backward_ < 3) ++timeLeft2Backward_;
+        if (timeLeft2Forward  > 0) --timeLeft2Forward;
+        if (timeLeft2Backward < 3) ++timeLeft2Backward;
     }
 }

@@ -2,17 +2,7 @@
 #include "Metadata.h"
 #include "DataManager.h"
 
-DataManager::DataManager() {}
-
-DataManager::~DataManager() {
-    if (!dataSequence_.empty()) {
-        for (auto it = dataSequence_.begin(); it != dataSequence_.end(); ++it) {
-            delete [] it->second;  // unload data
-        }
-    }
-}
-
-void DataManager::InitTF(const Metadata &meta) {
+DataManager::DataManager(const Metadata &meta) {
     ifstream inf(meta.tfPath().c_str(), ios::binary);
     if (!inf) {
         std::cout << "cannot load tf setting: " << meta.tfPath() << std::endl;
@@ -26,11 +16,13 @@ void DataManager::InitTF(const Metadata &meta) {
         exit(EXIT_FAILURE);
     }
 
-    tfRes_ = (int)tfResF;
-    pTFMap_ = new float[tfRes_];
-    inf.read(reinterpret_cast<char*>(pTFMap_), tfRes_*sizeof(float));
+    tfRes = static_cast<int>(tfResF);
+    tfMap.resize(tfRes);
+    inf.read(reinterpret_cast<char*>(tfMap.data()), tfRes*sizeof(float));
     inf.close();
 }
+
+DataManager::~DataManager() {}
 
 void DataManager::SaveMaskVolume(float* pData, const Metadata &meta, const int timestep) {
     char timestamp[21];  // up to 64-bit number
@@ -42,7 +34,7 @@ void DataManager::SaveMaskVolume(float* pData, const Metadata &meta, const int t
         exit(EXIT_FAILURE);
     }
 
-    outf.write(reinterpret_cast<char*>(pData), volumeSize_*sizeof(float));
+    outf.write(reinterpret_cast<char*>(pData), volumeSize*sizeof(float));
     outf.close();
 
     std::cout << "mask volume created: " << fpath << std::endl;
@@ -51,24 +43,22 @@ void DataManager::SaveMaskVolume(float* pData, const Metadata &meta, const int t
 void DataManager::LoadDataSequence(const Metadata& meta, const vec3i& gridDim, 
     const vec3i& blockIdx, const int currentT) {
 
-    blockDim_ = meta.volumeDim() / gridDim;
-    volumeSize_ = blockDim_.volumeSize();
+    blockDim = meta.volumeDim() / gridDim;
+    volumeSize = blockDim.volumeSize();
 
-    // delete if data is not within [t-2, t+2] of current timestep t
-    for (auto it = dataSequence_.begin(); it != dataSequence_.end(); ++it) {
-        if (it->first < currentT-2 || it->first > currentT+2) {
-            delete [] it->second;
-            dataSequence_.erase(it);
+    for (auto& data : dataSequence) {
+        if (data.first < currentT-2 || data.first > currentT+2) {
+            dataSequence.erase(data.first);
         }
     }
 
     for (int t = currentT-2; t <= currentT+2; ++t) {
-        if (t < meta.start() || t > meta.end() || dataSequence_[t] != nullptr) {
+        if (t < meta.start() || t > meta.end() || !dataSequence[t].empty()) {
             continue;
         }
 
-        // 1. allocate new data buffer
-        dataSequence_[t] = new float[volumeSize_];
+        // 1. resize to allocate buffer
+        dataSequence[t].resize(volumeSize);
 
         // 2. generate file name by timestep
         char timestamp[21];  // up to 64-bit number
@@ -78,8 +68,8 @@ void DataManager::LoadDataSequence(const Metadata& meta, const vec3i& gridDim,
 
         // 3. parallel io
         int *gsizes = meta.volumeDim().data();
-        int *subsizes = blockDim_.data();
-        int *starts = (blockDim_ * blockIdx).data();
+        int *subsizes = blockDim.data();
+        int *starts = (blockDim * blockIdx).data();
 
         MPI_Datatype filetype;
         MPI_Type_create_subarray(3, gsizes, subsizes, starts, MPI_ORDER_FORTRAN, MPI_FLOAT, &filetype);
@@ -93,28 +83,30 @@ void DataManager::LoadDataSequence(const Metadata& meta, const vec3i& gridDim,
         }
 
         MPI_File_set_view(file, 0, MPI_FLOAT, filetype, "native", MPI_INFO_NULL);
-        MPI_File_read_all(file, dataSequence_[t], volumeSize_, MPI_FLOAT, MPI_STATUS_IGNORE);
+        MPI_File_read_all(file, dataSequence[t].data(), volumeSize, MPI_FLOAT, MPI_STATUS_IGNORE);
 
         // 3. gc
         MPI_File_close(&file);
         MPI_Type_free(&filetype);
 
         // 4. nomalize data - parallel
-        preprocessData(dataSequence_[t]);
+        preprocessData(dataSequence[t]);
     }
 }
 
-void DataManager::preprocessData(float *pData) {
-    float min = pData[0], max = pData[0];
-    for (int i = 1; i < volumeSize_; ++i) {
-        min = std::min(min, pData[i]);
-        max = std::max(max, pData[i]);
+void DataManager::preprocessData(std::vector<float>& data) {
+    float min = data[0], max = data[0];
+    for (int i = 1; i < volumeSize; ++i) {
+        min = std::min(min, data[i]);
+        max = std::max(max, data[i]);
     }
 
     MPI_Allreduce(&min, &min, 1, MPI_FLOAT, MPI_MIN, MPI_COMM_WORLD);
     MPI_Allreduce(&max, &max, 1, MPI_FLOAT, MPI_MAX, MPI_COMM_WORLD);
 
-    for (int i = 0; i < volumeSize_; ++i) {
-        pData[i] = (pData[i] - min) / (max - min);
+std::cout << "min: " << min << " max: " << max << std::endl;
+
+    for (int i = 0; i < volumeSize; ++i) {
+        data[i] = (data[i] - min) / (max - min);
     }
 }
