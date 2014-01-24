@@ -38,41 +38,40 @@ void MpiController::InitWith(int argc, char **argv) {
 
 void MpiController::Start() {
     for (int i = pMetadata->start(); i < pMetadata->end(); ++i) {
-        TrackForward();
+        currentT++;
+        if (currentT > pMetadata->end()) {
+            currentT = pMetadata->end();
+            std::cout << "already last timestep." << std::endl;
+            return;
+        }
+
+        pBlockController->SetCurrentTimestep(currentT);
+        pBlockController->TrackForward(*pMetadata, gridDim, blockIdx);
+std::cout << "["<<myRank<<"]" << " #feautre: " << featureTable.size();
+        pBlockController->UpdateLocalGraph(myRank, blockIdx);
+std::cout << " -> " << featureTable.size() << std::endl;
+// std::cout << "["<<myRank<<"]" << " #feautre: " << featureTable.size();
+
+        featureTable.clear();
+
+        adjacentBlocks = pBlockController->GetAdjacentBlocks();
+        need_to_send = need_to_recv = true;
+        any_send = any_recv = true;
+
+        // while (any_send || any_recv) {
+        //     syncFeatureGraph();
+        // }
+
+        gatherGlobalGraph();
+
+// std::cout << " -> " << featureTable.size() << std::endl;
+
+        featureTableVector[currentT] = featureTable;
     }
 
     if (myRank == 0) {
         std::cout << "all jobs done." << std::endl;
     }
-}
-
-void MpiController::TrackForward() {
-    currentT++;
-    if (currentT > pMetadata->end()) {
-        currentT = pMetadata->end();
-        std::cout << "already last timestep." << std::endl;
-        return;
-    }
-
-    pBlockController->SetCurrentTimestep(currentT);
-    pBlockController->TrackForward(*pMetadata, gridDim, blockIdx);
-    pBlockController->UpdateLocalGraph(myRank, blockIdx);
-
-    featureTable.clear();
-
-    adjacentBlocks = pBlockController->GetAdjacentBlocks();
-    need_to_send = need_to_recv = true;
-    any_send = any_recv = true;
-
-    // while (any_send || any_recv) {
-    //     syncFeatureGraph();
-    // }
-
-    gatherGlobalGraph();
-
-std::cout << "["<<myRank<<"]" << " #feautre: " << featureTable.size() << std::endl;
-
-    featureTableVector[currentT] = featureTable;
 }
 
 void MpiController::gatherGlobalGraph() {

@@ -4,9 +4,9 @@
 #include "FeatureTracker.h"
 
 BlockController::BlockController() {
-    for (int surface = 0; surface < 6; ++surface) {
-        adjacentBlocks[surface] = SURFACE_NULL;
-    }
+    // for (int surface = 0; surface < 6; ++surface) {
+    //     adjacentBlocks[surface] = SURFACE_NULL;
+    // }
 }
 
 BlockController::~BlockController() {
@@ -17,8 +17,8 @@ BlockController::~BlockController() {
 void BlockController::InitParameters(const Metadata& meta, const vec3i& gridDim, const vec3i& blockIdx) {
     initAdjacentBlocks(gridDim, blockIdx);
     
-    pDataManager = new DataManager(meta);
-    pDataManager->LoadDataSequence(meta, gridDim, blockIdx, currentT);
+    pDataManager = new DataManager(meta, gridDim, blockIdx);
+    pDataManager->LoadDataSequence(meta, currentT);
 
     pFeatureTracker = new FeatureTracker(pDataManager->GetBlockDim());
     pFeatureTracker->SetTFRes(pDataManager->GetTFRes());
@@ -27,14 +27,15 @@ void BlockController::InitParameters(const Metadata& meta, const vec3i& gridDim,
 }
 
 void BlockController::TrackForward(const Metadata& meta, const vec3i& gridDim, const vec3i& blockIdx) {
-    pDataManager->LoadDataSequence(meta, gridDim, blockIdx, currentT);
+    pDataManager->LoadDataSequence(meta, currentT);
 
     pFeatureTracker->SetTFMap(pDataManager->GetTFMap());
     pFeatureTracker->ExtractAllFeatures();
     pFeatureTracker->TrackFeature(pDataManager->GetDataPtr(currentT), FT_FORWARD, FT_DIRECT);
     pFeatureTracker->SaveExtractedFeatures(currentT);
 
-    pDataManager->SaveMaskVolume(pFeatureTracker->GetMaskPtr(), meta, currentT);
+    // pDataManager->SaveMaskVolume(pFeatureTracker->GetMaskPtr(), meta, currentT);
+    pDataManager->SaveMaskVolumeMpi(pFeatureTracker->GetMaskPtr(), meta, currentT);
 }
 
 void BlockController::initAdjacentBlocks(const vec3i& gridDim, const vec3i& blockIdx) {

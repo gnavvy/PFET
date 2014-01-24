@@ -15,7 +15,6 @@ public:
 
     void InitWith(int argc, char** argv);
     void Start();
-    void TrackForward();
 
 private:
     BlockController *pBlockController;

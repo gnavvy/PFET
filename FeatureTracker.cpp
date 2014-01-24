@@ -46,18 +46,23 @@ Feature FeatureTracker::createNewFeature() {
 
 void FeatureTracker::FindNewFeature(vec3i seed) {
     maskValue++;
+
     Feature f = createNewFeature();
     f.maskValue = maskValue;
     f.edgeVoxels.push_back(seed);
 
     expandRegion(f);
 
+std::cout << f.bodyVoxels.size() << std::endl;
+
     if (static_cast<int>(f.bodyVoxels.size()) < MIN_NUM_VOXEL_IN_FEATURE) {
         maskValue--; 
         return;
     }
 
+std::cout << "currentFeatures.size: " << currentFeatures.size() << "->";
     currentFeatures.push_back(f);
+std::cout << currentFeatures.size() << std::endl;
     backup1Features = currentFeatures;
     backup2Features = currentFeatures;
     backup3Features = currentFeatures;
@@ -200,7 +205,9 @@ inline void FeatureTracker::shrinkRegion(Feature &f) {
             if (--voxel.z >= 0)          { shrinkEdge(f, voxel); } voxel.z++;   // front
         } else if (mask[index] == 0.0f) { voxelOnEdge = true; }
 
-        if (voxelOnEdge) { f.edgeVoxels.push_back(voxel); }
+        if (voxelOnEdge) { 
+            f.edgeVoxels.push_back(voxel); 
+        }
     }
 
     for (auto voxel : f.edgeVoxels) {
@@ -241,7 +248,9 @@ inline void FeatureTracker::expandRegion(Feature& f) {
 
         // if any one of the six neighboring points is not on edge, the original
         // seed voxel is still considered as on edge and will be put back to edge list
-        if (voxelOnEdge) { tempVoxels.push_back(voxel); }
+        if (voxelOnEdge) { 
+            tempVoxels.push_back(voxel); 
+        }
     }
     f.edgeVoxels.swap(tempVoxels);
 

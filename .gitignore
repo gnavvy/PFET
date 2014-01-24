@@ -13,3 +13,9 @@ Testing
 
 build
 *.cmake
+
+*.sublime-workspace
+
+*.sublime-project
+
+pfet
