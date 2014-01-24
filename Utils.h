@@ -112,7 +112,7 @@ public:
 
 struct Feature {
     int   id;        // Unique ID for each feature
-    float maskValue; // color id of the feature
+    int   maskValue; // color id of the feature
     vec3i ctr;       // Centroid position of the feature
     vec3i min;       // Minimum position (x, y, z) of the feature
     vec3i max;       // Maximum position (x, y, z) of the feature
