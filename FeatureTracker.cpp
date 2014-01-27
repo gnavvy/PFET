@@ -76,18 +76,17 @@ void FeatureTracker::TrackFeature(float* pData, int direction, int mode) {
     maskPrev.clear();
     maskPrev.swap(mask);
 
-    for (unsigned int i = 0; i < currentFeatures.size(); ++i) {
+    for (auto i = 0; i < currentFeatures.size(); ++i) {
         Feature f = currentFeatures[i];
 
-        // start from here
         vec3i offset = predictRegion(i, direction, mode);
         fillRegion(f, offset);
         shrinkRegion(f);
         expandRegion(f);
 
         if (static_cast<int>(f.bodyVoxels.size()) < MIN_NUM_VOXEL_IN_FEATURE) {
-            // todo: remove feature that is too small
-            currentFeatures[i] = createNewFeature();
+            // erase feature from list when it becomes too small
+            currentFeatures.erase(currentFeatures.begin() + i);
             continue;
         } else {
             currentFeatures[i] = f;    
@@ -145,10 +144,9 @@ inline vec3i FeatureTracker::predictRegion(int index, int direction, int mode) {
     return offset;
 }
 
-// from here! Jan 22nd
 inline void FeatureTracker::fillRegion(Feature &f, const vec3i& offset) {
     // predicted to be on edge
-    for (auto voxel : f.edgeVoxels) {
+    for (auto const &voxel : f.edgeVoxels) {
         int index = GetVoxelIndex(voxel);
         if (mask[index] == 0.0) {
             mask[index] = static_cast<float>(f.maskValue);
@@ -158,7 +156,7 @@ inline void FeatureTracker::fillRegion(Feature &f, const vec3i& offset) {
     }
 
     // currently not on edge but previously on edge
-    for (auto voxel : f.edgeVoxels) {
+    for (auto const &voxel : f.edgeVoxels) {
         vec3i voxelPrev = voxel - offset;
         int index = GetVoxelIndex(voxel);
         int indexPrev = GetVoxelIndex(voxelPrev);
@@ -206,7 +204,7 @@ inline void FeatureTracker::shrinkRegion(Feature &f) {
         }
     }
 
-    for (auto voxel : f.edgeVoxels) {
+    for (auto const &voxel : f.edgeVoxels) {
         int index = GetVoxelIndex(voxel);
         if (mask[index] != static_cast<float>(f.maskValue)) {
             mask[index] = static_cast<float>(f.maskValue);

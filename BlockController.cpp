@@ -46,9 +46,9 @@ void BlockController::initAdjacentBlocks(const vec3i& gridDim, const vec3i& bloc
     adjacentBlocks[BACK]   = z+1 <  pz ? px*py*(z+1) + px*y + x : -1;
 }
 
-std::vector<int> BlockController::GetAdjacentBlocks() {
+std::vector<int> BlockController::GetAdjacentBlockIds() {
     std::vector<int> indices;
-    for (unsigned int i = 0; i < adjacentBlocks.size(); ++i) {
+    for (auto i = 0; i < adjacentBlocks.size(); ++i) {
         if (adjacentBlocks[i] != -1) {
             indices.push_back(adjacentBlocks[i]);
         }
@@ -56,23 +56,21 @@ std::vector<int> BlockController::GetAdjacentBlocks() {
     return indices;
 }
 
-void BlockController::UpdateLocalGraph(int blockID, const vec3i& blockIdx) {
+void BlockController::UpdateLocalGraph(int currentBlockId, const vec3i& blockIdx) {
     localGraph.clear();
 
-    std::vector<Feature> *pFeatures = pFeatureTracker->GetFeatureVectorPtr(currentT);
-    for (unsigned int i = 0; i < pFeatures->size(); ++i) {
-        Feature f = pFeatures->at(i);
-
-        for (int surface : f.touchedSurfaces) {
-            int adjacentBlock = adjacentBlocks[surface];
-            if (adjacentBlock == -1) {
+    std::vector<Feature> features = pFeatureTracker->GetFeatures(currentT);
+    for (auto const &f : features) {
+        for (auto surface : f.touchedSurfaces) {
+            int adjacentBlockId = adjacentBlocks[surface];
+            if (adjacentBlockId == -1) {
                 continue;
             }
 
             Edge edge;
             edge.id         = f.id;
-            edge.start      = blockID;
-            edge.end        = adjacentBlock;
+            edge.start      = currentBlockId;
+            edge.end        = adjacentBlockId;
             edge.centroid   = f.boundaryCtr[surface] + blockDim * blockIdx;
 
             localGraph.push_back(edge);

@@ -10,27 +10,21 @@ public:
    ~FeatureTracker();
 
     void ExtractAllFeatures();
-
-    // Set seed at current time step. FindNewFeature will do three things :
-    // 1. Do region growing at the current time step
-    // 2. Adding a center point into the center point list
-    // 3. Adding edge points into the edge list
     void FindNewFeature(vec3i seed);
-
-    // Track forward based on the center points of the features at the last time step
     void TrackFeature(float* pData, int direction, int mode);
-    void SaveExtractedFeatures(int index) { featureSequence[index] = currentFeatures; }
-    void SetDataPtr(float* pData)         { data.assign(pData, pData+volumeSize); }
-    void SetTFRes(int res)                { tfRes = res; }
-    void SetTFMap(float* map)             { tfMap.assign(map, map+tfRes); }
-    float* GetMaskPtr()                   { return mask.data(); }
-    int GetTFResolution()                 { return tfRes; }
-    int GetVoxelIndex(const vec3i& v)     { return blockDim.x*blockDim.y*v.z+blockDim.x*v.y+v.x; }
 
-    // Get all features information of current time step
-    std::vector<Feature>* GetFeatureVectorPtr(int index) { return &featureSequence[index]; }
+    void SaveExtractedFeatures(int index)   { featureSequence[index] = currentFeatures; }
+    void SetDataPtr(float* pData)           { data.assign(pData, pData+volumeSize); }
+    void SetTFRes(int res)                  { tfRes = res; }
+    void SetTFMap(float* map)               { tfMap.assign(map, map+tfRes); }
+
+    float* GetMaskPtr()                     { return mask.data(); }
+    int GetTFResolution()             const { return tfRes; }
+    int GetVoxelIndex(const vec3i& v) const { return blockDim.x*blockDim.y*v.z+blockDim.x*v.y+v.x; }
+    std::vector<Feature> GetFeatures(int t) { return featureSequence[t]; }
 
 private:
+    float getOpacity(float value) { return tfMap[static_cast<int>(value * (tfRes-1))]; }
     vec3i predictRegion(int index, int direction, int mode); // Predict region t based on direction, returns offset
     void fillRegion(Feature& f, const vec3i& offset);        // Scanline algorithm - fills everything inside edge
     void expandRegion(Feature& f);                           // Grows edge where possible
@@ -40,15 +34,12 @@ private:
     void backupFeatureInfo(int direction);                   // Update the feature vectors information after tracking
     void updateFeatureBoundary(Feature& f, const vec3i& voxel, int surface);
     Feature createNewFeature();
-
-    float getOpacity(float value) { return tfMap[static_cast<int>(value * (tfRes-1))]; }
-
-    float maskValue;  // Global mask value for newly detected features
+    
     int tfRes;              // Default transfer function resolution
     int volumeSize;
     int timeLeft2Forward;
     int timeLeft2Backward;
-    int numVoxelInFeature;
+    float maskValue;  // Global mask value for newly detected features
 
     vec3i blockDim;
 

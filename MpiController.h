@@ -33,7 +33,7 @@ private:
     vec3i blockIdx; // xyz coordinate of current processor
 
     // for global graph
-    int globalEdgeCount;
+    // int numEdgesAccumulated;
     void gatherGlobalGraph();
 
     // for feature graph
@@ -49,7 +49,7 @@ private:
     FeatureTable featureTable;
     std::unordered_map<int, FeatureTable> featureTableVector; // for time varying data
 
-    void mergeCorrespondentEdges(std::vector<Edge> edges);
+    void mergeCorrespondingEdges(std::vector<Edge> edges);
 };
 
 #endif // MPICONTROLLER_H

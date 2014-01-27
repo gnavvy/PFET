@@ -17,10 +17,10 @@ public:
     void TrackForward(const Metadata& meta, const vec3i& gridDim, const vec3i& blockIdx);
     void SetCurrentTimestep(int t) { currentT = t; }
 
-    std::vector<int> GetAdjacentBlocks();
+    std::vector<int> GetAdjacentBlockIds();
     std::vector<Edge> GetLocalGraph() { return localGraph; }
     void SetLocalGraph(const std::vector<Edge>& graph) { localGraph = graph; }
-    void UpdateLocalGraph(int blockID, const vec3i& blockIdx);
+    void UpdateLocalGraph(int currentBlockId, const vec3i& blockIdx);
 
 private:
     DataManager    *pDataManager;
