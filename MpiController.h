@@ -20,10 +20,7 @@ private:
     BlockController *pBlockController;
     Metadata *pMetadata;
 
-    MPI_Datatype MPI_TYPE_EDGE;
-    MPI_Comm MPI_COMM_LOCAL;
-    MPI_Request request;
-    MPI_Status status;
+    MPI_Datatype MPI_TYPE_LEAF;
 
     int myRank;
     int numProc;
@@ -33,23 +30,21 @@ private:
     vec3i blockIdx; // xyz coordinate of current processor
 
     // for global graph
-    // int numEdgesAccumulated;
-    void gatherGlobalGraph();
+    void gatherLeaves();
 
     // for feature graph
     std::vector<int> adjacentBlocks;
-    void syncFeatureGraph();
-    void updateFeatureTable(Edge edge);
-    bool need_to_send;
-    bool need_to_recv;
-    bool any_send, any_recv;
+    void syncLeaves();
+    void updateFeatureTable(const Leaf& leaf);
+    bool toSend, toRecv;
+    bool anySend, anyRecv;
 
     // global feature info
     typedef std::unordered_map<int, std::vector<int> > FeatureTable;
     FeatureTable featureTable;
     std::unordered_map<int, FeatureTable> featureTableVector; // for time varying data
 
-    void mergeCorrespondingEdges(std::vector<Edge> edges);
+    void mergeCorrespondingEdges(std::vector<Leaf> leaves);
 };
 
 #endif // MPICONTROLLER_H

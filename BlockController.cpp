@@ -56,24 +56,24 @@ std::vector<int> BlockController::GetAdjacentBlockIds() {
     return indices;
 }
 
-void BlockController::UpdateLocalGraph(int currentBlockId, const vec3i& blockIdx) {
-    localGraph.clear();
+void BlockController::UpdateConnectivityTree(int currentBlockId, const vec3i& blockIdx) {
+    connectivityTree.clear();
 
     std::vector<Feature> features = pFeatureTracker->GetFeatures(currentT);
-    for (auto const &f : features) {
+    for (const auto& f : features) {
         for (auto surface : f.touchedSurfaces) {
             int adjacentBlockId = adjacentBlocks[surface];
             if (adjacentBlockId == -1) {
                 continue;
             }
 
-            Edge edge;
-            edge.id         = f.id;
-            edge.start      = currentBlockId;
-            edge.end        = adjacentBlockId;
-            edge.centroid   = f.boundaryCtr[surface] + blockDim * blockIdx;
+            Leaf leaf;
+            leaf.id       = f.id;
+            leaf.root     = currentBlockId;
+            leaf.tip      = adjacentBlockId;
+            leaf.centroid = f.boundaryCtr[surface] + blockDim * blockIdx;
 
-            localGraph.push_back(edge);
+            connectivityTree.push_back(leaf);
         }
     }
 }

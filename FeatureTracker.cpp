@@ -146,7 +146,7 @@ inline vec3i FeatureTracker::predictRegion(int index, int direction, int mode) {
 
 inline void FeatureTracker::fillRegion(Feature &f, const vec3i& offset) {
     // predicted to be on edge
-    for (auto const &voxel : f.edgeVoxels) {
+    for (const auto& voxel : f.edgeVoxels) {
         int index = GetVoxelIndex(voxel);
         if (mask[index] == 0.0) {
             mask[index] = static_cast<float>(f.maskValue);
@@ -156,7 +156,7 @@ inline void FeatureTracker::fillRegion(Feature &f, const vec3i& offset) {
     }
 
     // currently not on edge but previously on edge
-    for (auto const &voxel : f.edgeVoxels) {
+    for (const auto& voxel : f.edgeVoxels) {
         vec3i voxelPrev = voxel - offset;
         int index = GetVoxelIndex(voxel);
         int indexPrev = GetVoxelIndex(voxelPrev);
@@ -204,7 +204,7 @@ inline void FeatureTracker::shrinkRegion(Feature &f) {
         }
     }
 
-    for (auto const &voxel : f.edgeVoxels) {
+    for (const auto& voxel : f.edgeVoxels) {
         int index = GetVoxelIndex(voxel);
         if (mask[index] != static_cast<float>(f.maskValue)) {
             mask[index] = static_cast<float>(f.maskValue);

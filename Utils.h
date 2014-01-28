@@ -12,8 +12,8 @@
 #include <array>
 #include <list>
 
-const float DIST_THRESHOLD = 4.0;
-const float OPACITY_THRESHOLD  = 0.1;
+const float DIST_THRESHOLD = .5;
+const float OPACITY_THRESHOLD  = .1;
 
 const int MIN_NUM_VOXEL_IN_FEATURE = 10;
 const int FT_DIRECT = 0;
@@ -98,18 +98,16 @@ namespace util {
 
 typedef util::vec3<int> vec3i;
 
-class Edge {
-public:
-    int id, start, end;
-    vec3i centroid;
+struct Leaf {
+    int id;         // unique id for each leaf
+    int root;       // id of the residing block
+    int tip;        // id of the adjacent block
+    vec3i centroid; // centroid of boundary surface
 
-    bool operator ==(Edge const& rhs) const {
-        Edge lhs(*this);
-        if (lhs.id==rhs.id && lhs.start==rhs.start && lhs.end==rhs.end) {
-            return true;
-        } else return false;
+    bool operator==(const Leaf& rhs) const {
+        return (*this).id==rhs.id && (*this).root==rhs.root && (*this).tip== rhs.tip;
     }
-};  // start --id--> end @ centroid
+};
 
 struct Feature {
     int   id;        // Unique ID for each feature

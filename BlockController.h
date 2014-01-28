@@ -18,9 +18,9 @@ public:
     void SetCurrentTimestep(int t) { currentT = t; }
 
     std::vector<int> GetAdjacentBlockIds();
-    std::vector<Edge> GetLocalGraph() { return localGraph; }
-    void SetLocalGraph(const std::vector<Edge>& graph) { localGraph = graph; }
-    void UpdateLocalGraph(int currentBlockId, const vec3i& blockIdx);
+    std::vector<Leaf> GetConnectivityTree() { return connectivityTree; }
+    void SetConnectivityTree(const std::vector<Leaf>& tree) { connectivityTree = tree; }
+    void UpdateConnectivityTree(int currentBlockId, const vec3i& blockIdx);
 
 private:
     DataManager    *pDataManager;
@@ -29,7 +29,7 @@ private:
     int             currentT;
     
     std::unordered_map<int, int> adjacentBlocks;
-    std::vector<Edge> localGraph;
+    std::vector<Leaf> connectivityTree;
 
     void initAdjacentBlocks(const vec3i& gridDim, const vec3i& blockIdx);
 };

@@ -16,8 +16,8 @@ void MpiController::InitWith(int argc, char **argv) {
     MPI_Comm_size(MPI_COMM_WORLD, &numProc);
 
     // declare new type for edge
-    MPI_Type_contiguous(sizeof(Edge), MPI_BYTE, &MPI_TYPE_EDGE);
-    MPI_Type_commit(&MPI_TYPE_EDGE);
+    MPI_Type_contiguous(sizeof(Leaf), MPI_BYTE, &MPI_TYPE_LEAF);
+    MPI_Type_commit(&MPI_TYPE_LEAF);
 
     gridDim = vec3i(atoi(argv[1]), atoi(argv[2]), atoi(argv[3]));
 
@@ -44,18 +44,27 @@ void MpiController::Start() {
 
         pBlockController->SetCurrentTimestep(currentT);
         pBlockController->TrackForward(*pMetadata, gridDim, blockIdx);
-        pBlockController->UpdateLocalGraph(myRank, blockIdx);
+        pBlockController->UpdateConnectivityTree(myRank, blockIdx);
 
         featureTable.clear();
 
         adjacentBlocks = pBlockController->GetAdjacentBlockIds();
-        need_to_send = need_to_recv = true;
-        any_send = any_recv = true;
-        while (any_send || any_recv) {
-            syncFeatureGraph();
+        toSend = toRecv = anySend = anyRecv = true;
+        while (anySend || anyRecv) {
+            syncLeaves();
         }
 
-        // gatherGlobalGraph();
+        // gatherLeaves();
+
+        if (myRank == 0) {
+            for (const auto& f : featureTable) {
+                std::cout << "["<<myRank<<"] " << f.first << ":";
+                for (const auto& id : f.second) {
+                    std::cout << id << " ";
+                }
+                std::cout << std::endl;
+            }            
+        }
 
         featureTableVector[currentT] = featureTable;
     }
@@ -65,183 +74,131 @@ void MpiController::Start() {
     }
 }
 
-void MpiController::gatherGlobalGraph() {
-    std::vector<Edge> edges = pBlockController->GetLocalGraph();
-    int numEdges = edges.size();
+void MpiController::gatherLeaves() {
+    std::vector<Leaf> leaves = pBlockController->GetConnectivityTree();
+    int numLeaves = leaves.size();
 
-    // a vector that holds the number of edges for each block
-    std::vector<int> numEdgesGlobal(numProc);
-    MPI_Allgather(&numEdges, 1, MPI_INT, numEdgesGlobal.data(), 1, MPI_INT, MPI_COMM_WORLD);
+    // a vector that holds the number of leaves for each block
+    std::vector<int> numLeavesGlobal(numProc);
+    MPI_Allgather(&numLeaves, 1, MPI_INT, numLeavesGlobal.data(), 1, MPI_INT, MPI_COMM_WORLD);
 
     // be careful, the last argument of std::accumulate controls both value and type
-    int numEdgesSum = std::accumulate(numEdgesGlobal.begin(), numEdgesGlobal.end(), 0);
-    std::vector<Edge> edgesGlobal(numEdgesSum);
+    int numLeavesSum = std::accumulate(numLeavesGlobal.begin(), numLeavesGlobal.end(), 0);
+    std::vector<Leaf> leavesGlobal(numLeavesSum);
 
-    // where edges received from other blocks should be places.
+    // where leaves received from other blocks should be places. 
     std::vector<int> displacements(numProc, 0);
     for (int i = 1; i < numProc; ++i) {
-        displacements[i] = numEdgesGlobal[i-1] + displacements[i-1];
+        displacements[i] = numLeavesGlobal[i-1] + displacements[i-1];
     }
 
-    // gather edges from all blocks
-    MPI_Allgatherv(edges.data(), numEdges, MPI_TYPE_EDGE, edgesGlobal.data(), 
-        numEdgesGlobal.data(), displacements.data(), MPI_TYPE_EDGE, MPI_COMM_WORLD);
+    // gather leaves from all blocks
+    MPI_Allgatherv(leaves.data(), numLeaves, MPI_TYPE_LEAF, leavesGlobal.data(),
+        numLeavesGlobal.data(), displacements.data(), MPI_TYPE_LEAF, MPI_COMM_WORLD);
 
-    mergeCorrespondingEdges(edgesGlobal);
+    mergeCorrespondingEdges(leavesGlobal);
 }
 
-void MpiController::syncFeatureGraph() {
-    vector<Edge> localEdges = pBlockController->GetLocalGraph();
-    int localEdgeCount = localEdges.size();
+void MpiController::syncLeaves() {
+    std::vector<Leaf> myLeaves = pBlockController->GetConnectivityTree();
+    int numLeaves = myLeaves.size();
 
-    vector<int> blocksNeedRecv(numProc);
-    std::fill(blocksNeedRecv.begin(), blocksNeedRecv.end(), -1);
-
-    int recv_id = need_to_recv ? myRank : -1;
-    MPI_Allgather(&recv_id, 1, MPI_INT, blocksNeedRecv.data(), 1, MPI_INT, MPI_COMM_WORLD);
+    int recvId = toRecv ? myRank : -1;
+    std::vector<int> blocksNeedRecv(numProc, -1);   
+    MPI_Allgather(&recvId, 1, MPI_INT, blocksNeedRecv.data(), 1, MPI_INT, MPI_COMM_WORLD);
 
     std::vector<int> adjacentBlocksNeedRecv;
 
+    // find if any of my neighbors need to receive
     std::sort(adjacentBlocks.begin(), adjacentBlocks.end());
     std::sort(blocksNeedRecv.begin(), blocksNeedRecv.end());
-
     std::set_intersection(adjacentBlocks.begin(), adjacentBlocks.end(),
         blocksNeedRecv.begin(), blocksNeedRecv.end(), back_inserter(adjacentBlocksNeedRecv));
 
-    need_to_send = adjacentBlocksNeedRecv.size() > 0 ? true : false;
+    // no bother to send if nobody need to receive
+    toSend = adjacentBlocksNeedRecv.empty() ? false : true;
 
-    std::vector<Edge> adjacentGraph;
-
-    if (need_to_recv) {
-        for (auto i = 0; i < adjacentBlocks.size(); ++i) {
-            int src = adjacentBlocks.at(i);
-            int srcEdgeCount = 0;
-
-            // 1. recv count
-            MPI_Irecv(&srcEdgeCount, 1, MPI_INT, src, 100, MPI_COMM_WORLD, &request);
-            // 2. recv content
-            if (srcEdgeCount != 0) {
-                std::vector<Edge> srcEdges(srcEdgeCount);
-                MPI_Irecv(srcEdges.data(), srcEdgeCount, MPI_TYPE_EDGE, src, 101, MPI_COMM_WORLD, &request);
-
-                for (int i = 0; i < srcEdgeCount; ++i) {
-                    bool isNew = true;
-                    for (unsigned int j = 0; j < adjacentGraph.size(); ++j) {
-                        if (srcEdges[i] == adjacentGraph[j]) {
-                            isNew = false; break;
-                        }
-                    }
-                    if (isNew) {
-                        adjacentGraph.push_back(srcEdges[i]);
+    if (toRecv) {
+        for (auto neighbor : adjacentBlocks) {
+            int numLeaves = 0;
+            MPI_Request request;
+            // 1. see how many leaves my neighbor have
+            MPI_Irecv(&numLeaves, 1, MPI_INT, neighbor, 100, MPI_COMM_WORLD, &request);
+            // 2. if they have any, get them
+            if (numLeaves != 0) {
+                std::vector<Leaf> leaves(numLeaves);
+                MPI_Irecv(leaves.data(), numLeaves, MPI_TYPE_LEAF, neighbor, 101, MPI_COMM_WORLD, &request);
+                for (const auto& leaf : leaves) {
+                    // 3. if I don't previously have the leaf my neighbor send to me, take it
+                    if (std::find(myLeaves.begin(), myLeaves.end(), leaf) == myLeaves.end()) {
+                        myLeaves.push_back(leaf);
                     }
                 }
             }
         }
-        need_to_recv = false;
+        toRecv = false;
     }
 
-    if (need_to_send) {
-        for (auto i = 0; i < adjacentBlocksNeedRecv.size(); ++i) {
-            int dest = adjacentBlocksNeedRecv.at(i);
-
-            // 1. send count
-            MPI_Send(&localEdgeCount, 1, MPI_INT, dest, 100, MPI_COMM_WORLD);
-            // 2. send content
-            if (localEdgeCount > 0) {
-                MPI_Send(localEdges.data(), localEdgeCount, MPI_TYPE_EDGE, dest, 101, MPI_COMM_WORLD);
+    if (toSend) {
+        for (auto neighbor : adjacentBlocksNeedRecv) {
+            // 1. tell them how many leaves I have, even if I have none
+            MPI_Send(&numLeaves, 1, MPI_INT, neighbor, 100, MPI_COMM_WORLD);
+            // 2. if I have any, send them
+            if (numLeaves > 0) {
+                MPI_Send(myLeaves.data(), numLeaves, MPI_TYPE_LEAF, neighbor, 101, MPI_COMM_WORLD);
             }
         }
     }
 
-    // add local edges
-    for (auto i = 0; i < localEdges.size(); ++i) {
-        bool isNew = true;
-        for (unsigned int j = 0; j < adjacentGraph.size(); ++j) {
-            if (localEdges[i] == adjacentGraph[j]) {
-                isNew = false; break;
-            }
-        }
-        if (isNew) {
-            adjacentGraph.push_back(localEdges[i]);
-        }
-    }
+    mergeCorrespondingEdges(myLeaves);
+    pBlockController->SetConnectivityTree(myLeaves);
 
-    mergeCorrespondingEdges(adjacentGraph);
-    pBlockController->SetLocalGraph(adjacentGraph);
-
-    MPI_Allreduce(&need_to_send, &any_send, 1, MPI_C_BOOL, MPI_LOR, MPI_COMM_WORLD);
-    MPI_Allreduce(&need_to_recv, &any_recv, 1, MPI_C_BOOL, MPI_LOR, MPI_COMM_WORLD);
+    // anySend = any(toSend), anyRecv = any(toRecv)
+    MPI_Allreduce(&toSend, &anySend, 1, MPI_C_BOOL, MPI_LOR, MPI_COMM_WORLD);
+    MPI_Allreduce(&toRecv, &anyRecv, 1, MPI_C_BOOL, MPI_LOR, MPI_COMM_WORLD);
 }
 
-void MpiController::mergeCorrespondingEdges(vector<Edge> edges) {
-    for (auto i = 0; i < edges.size(); ++i) {
-        Edge ei = edges[i];
-        for (auto j = i+1; j < edges.size(); ++j) {
-            Edge ej = edges[j];
+void MpiController::mergeCorrespondingEdges(std::vector<Leaf> leaves) {
+    for (auto i = 0; i < leaves.size(); ++i) {
+        Leaf& p = leaves[i];
+        for (auto j = i+1; j < leaves.size(); ++j) {
+            Leaf& q = leaves[j];
 
-            // sync the id of feature if two matches
-            if (ei.start == ej.end && ei.end == ej.start &&  // 0->1 | 1->0
-                (ei.start == myRank || ei.end == myRank) &&
-                ei.centroid.distanceFrom(ej.centroid) <= DIST_THRESHOLD) {
-                if (ei.id < ej.id) {    // use the smaller id
-                    edges[j].id = ei.id;
-                } else {
-                    edges[i].id = ej.id;
-                }
-                updateFeatureTable(ei);
+            // sync leaf id of feature with the smaller one if two match
+            if (p.root == q.tip && p.tip == q.root && (p.root == myRank || p.tip == myRank) &&
+                p.centroid.distanceFrom(q.centroid) < DIST_THRESHOLD) {
+                p.id = q.id = std::min(p.id, q.id);
+                // updateFeatureTable(leaves[i]);
             }
         }
     }
 
-    // if either start or end equals to myRank, add to featureTable
-    for (auto i = 0; i < edges.size(); ++i) {
-        Edge edge = edges[i];
-        if (edge.start == myRank || edge.end == myRank) {
-            updateFeatureTable(edge);
-        }
-    }
-
-    // if both start and end are not equal to myRank,
+    // if either root or tip equals to myRank, add to featureTable
+    // if both root and tip are not equal to myRank,
     // but the id is already in the feature table, update featureTable
-    for (auto i = 0; i < edges.size(); ++i) {
-        Edge edge = edges[i];
-        if (edge.start != myRank || edge.end != myRank) {
-            if (featureTable.find(edge.id) != featureTable.end()) {
-                updateFeatureTable(edge);
-            }
-        }
-    }
-
-    if (myRank == 0) {     // debug log
-        for (auto it = featureTable.begin(); it != featureTable.end(); ++it) {
-            int id = it->first;
-            cout << "[" << myRank << "] " << id << ": ( ";
-            vector<int> value = it->second;
-            for (auto i = 0; i < value.size(); ++i) {
-                cout << value[i] << " ";
-            }
-            cout << ")" << endl;
+    for (const auto& leaf : leaves) {
+        if (leaf.root == myRank || leaf.tip == myRank || featureTable.find(leaf.id) != featureTable.end()) {
+            updateFeatureTable(leaf);
         }
     }
 }
 
-void MpiController::updateFeatureTable(Edge edge) {
-    if (featureTable.find(edge.id) == featureTable.end()) {
+void MpiController::updateFeatureTable(const Leaf& leaf) {
+    if (featureTable.find(leaf.id) == featureTable.end()) {
         std::vector<int> values;
-        values.push_back(edge.start);
-        values.push_back(edge.end);
-        featureTable[edge.id] = values;
-        need_to_recv = true;
+        values.push_back(leaf.root);
+        values.push_back(leaf.tip);
+        featureTable[leaf.id] = values;
+        toRecv = true;
     } else {
-        std::vector<int> value = featureTable[edge.id];
-        if (std::find(value.begin(), value.end(), edge.start) == value.end()) {
-            value.push_back(edge.start);
-            need_to_recv = true;
+        std::vector<int> &value = featureTable[leaf.id];
+        if (std::find(value.begin(), value.end(), leaf.root) == value.end()) {
+            value.push_back(leaf.root);
+            toRecv = true;
         }
-        if (std::find(value.begin(), value.end(), edge.end) == value.end()) {
-            value.push_back(edge.end);
-            need_to_recv = true;
+        if (std::find(value.begin(), value.end(), leaf.tip) == value.end()) {
+            value.push_back(leaf.tip);
+            toRecv = true;
         }
-        featureTable[edge.id] = value;
     }
 }
