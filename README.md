@@ -63,8 +63,6 @@ For example, the following data files will be read in with the above settings:
 
 Please consider citing the following reference if you find the code helpful.
 
-###### Text
-
 Yang Wang, Hongfeng Yu, Kwan-Liu Ma. *Scalable Parallel Feature Extraction and Tracking for Large Time-varying 3D Volume Data*. In Proceedings of EGPGV 2013, pages 17-24.
 
 ###### BibTex
