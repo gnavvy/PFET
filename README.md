@@ -76,5 +76,11 @@ Yang Wang, Hongfeng Yu, Kwan-Liu Ma. *Scalable Parallel Feature Extraction and T
       organization={The Eurographics Association}
     }
 
+#### Acknowledgments
+
+This software is made available by the VIDI research group at the University of 
+California at Davis through a project sponsored by the U.S. Department of Energy 
+with grants DE-FC02-06ER25777, DE-CS0005334, and DE-FC02-2ER26072.
+
 #### License
 MIT
